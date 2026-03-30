@@ -80,7 +80,7 @@ with tab1:
                     existing = conn.read(worksheet=sheet, ttl=0)
                     new_row = pd.DataFrame([{"UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, "Total": round(total), "VAT": round(vat), "eTIMS": "Yes" if is_etims else "No"}])
                    
-             if existing_data is not None and not existing_data.empty:
+            if existing_data is not None and not existing_data.empty:
                         updated_df = pd.concat([existing_data, new_row], ignore_index=True)
                     else:
                         updated_df = new_row 
