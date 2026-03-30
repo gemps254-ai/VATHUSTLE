@@ -206,10 +206,15 @@ with tab3:
                 m3.metric("Net VAT", f"KES {abs(n_v):,.0f}", delta="Due to KRA" if n_v > 0 else "Credit")
 
                 st.divider()
-                st.write("**Recent Records**")
+                st.write("**Recent Records**")            
                 col_l, col_r = st.columns(2)
                 curr_cfg = {"Total": st.column_config.NumberColumn(format="KES %,d"), "VAT": st.column_config.NumberColumn(format="KES %,d")}
-                with col_l: st.dataframe(u_s[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
-                with col_r: st.dataframe(u_p[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
+                with col_l:
+                     st.write("**Sales Log**")
+                    st.dataframe(u_s[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
+                    
+                with col_r:
+                    st.write("**Purchases Log**")
+                    st.dataframe(u_p[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
             except Exception as e:
                 st.error(f"Error: {e}")
