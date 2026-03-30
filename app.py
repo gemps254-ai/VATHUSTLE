@@ -191,7 +191,7 @@ with tab2:
                     }
                 )
                 
-                c_btn1 = st.columns(1)
+                c_btn1, = st.columns(1)
                 if c_btn1.button("🚀 Push Queue to Cloud"):
                     with st.spinner("Uploading bulk data..."):
                         for s_type in ["Sales", "Purchases"]:
