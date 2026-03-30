@@ -131,9 +131,7 @@ with tab1:
                     st.error(f"Error: {e}")
 
 # --- TAB 2: BULK QUEUE (New Feature) ---
-with tab3: # Re-mapping Tab indices for clarity
-    pass # Placeholder for Monthly Report logic below
-
+# --- TAB 2: BULK QUEUE (Integrated with Global VAT Toggle) ---
 with tab2:
     st.subheader("📋 Bulk Upload Queue")
     if not kra_pin:
@@ -141,22 +139,27 @@ with tab2:
     elif uploaded_file:
         try:
             # Read both sheets
-            up_sales = pd.read_excel(uploaded_file, sheet_name='Sales')
-            up_purch = pd.read_excel(uploaded_file, sheet_name='Purchases')
+            up_sales = pd.read_excel(uploaded_file, sheet_name='Sales', engine='openpyxl')
+            up_purch = pd.read_excel(uploaded_file, sheet_name='Purchases', engine='openpyxl')
             
             def process_bulk(df, is_sale):
                 if df.empty: return pd.DataFrame()
                 processed = []
-                for _, row in df.iterrows():
+                for _, row in df.dropna(subset=['Amount']).iterrows():
                     amt = float(row['Amount'])
-                    v_type = str(row['VAT_Type (Inclusive/Exclusive/Exempt)'])
                     
-                    if "Inclusive" in v_type:
-                        v = amt - (amt / VAT_MULTIPLIER)
-                        t = amt
-                    elif "Exclusive" in v_type:
-                        v = amt * CURRENT_VAT_RATE
-                        t = amt + v
+                    # Logic: If toggle is OFF, VAT is always 0. 
+                    # If toggle is ON, we look at the Excel row's VAT_Type.
+                    if enable_vat_calc:
+                        v_type = str(row['VAT_Type (Inclusive/Exclusive/Exempt)'])
+                        if "Inclusive" in v_type:
+                            v = amt - (amt / VAT_MULTIPLIER)
+                            t = amt
+                        elif "Exclusive" in v_type:
+                            v = amt * CURRENT_VAT_RATE
+                            t = amt + v
+                        else: # Exempt
+                            v, t = 0, amt
                     else:
                         v, t = 0, amt
                     
@@ -166,7 +169,7 @@ with tab2:
                         "CounterpartyPIN": str(row['CounterpartyPIN']),
                         "Total": int(round(t)),
                         "VAT": int(round(v)),
-                        "eTIMS": "Yes", # Default for bulk
+                        "eTIMS": "Yes", 
                         "Category": "Sales" if is_sale else "Purchases"
                     })
                 return pd.DataFrame(processed)
@@ -175,29 +178,39 @@ with tab2:
             queue_df = pd.concat([process_bulk(up_sales, True), process_bulk(up_purch, False)], ignore_index=True)
             
             if not queue_df.empty:
-                st.write("Review the transactions below before pushing to Google Sheets:")
-                st.dataframe(queue_df, use_container_width=True, hide_index=True, column_config={
-                    "Total": st.column_config.NumberColumn(format="KES %,d"),
-                    "VAT": st.column_config.NumberColumn(format="KES %,d")
-                })
+                status_text = "VAT Calculations: ENABLED" if enable_vat_calc else "VAT Calculations: DISABLED (All VAT set to 0)"
+                st.caption(f"✨ {status_text}")
+                
+                # Using Data Editor so you can delete/edit rows before pushing
+                edited_df = st.data_editor(
+                    queue_df, 
+                    use_container_width=True, 
+                    hide_index=True,
+                    num_rows="dynamic",
+                    column_config={
+                        "Total": st.column_config.NumberColumn(format="KES %,d"),
+                        "VAT": st.column_config.NumberColumn(format="KES %,d"),
+                        "Category": st.column_config.SelectboxColumn(options=["Sales", "Purchases"])
+                    }
+                )
                 
                 c_btn1, c_btn2 = st.columns(2)
                 if c_btn1.button("🚀 Push Queue to Cloud"):
                     with st.spinner("Uploading bulk data..."):
-                        # Split back to Sales/Purchases for GSheet update
                         for s_type in ["Sales", "Purchases"]:
-                            sub_df = queue_df[queue_df['Category'] == s_type].drop(columns=['Category'])
+                            sub_df = edited_df[edited_df['Category'] == s_type].drop(columns=['Category'])
                             if not sub_df.empty:
                                 existing = conn.read(worksheet=s_type, ttl=0)
                                 conn.update(worksheet=s_type, data=pd.concat([existing, sub_df], ignore_index=True))
                         st.success("✅ Bulk Upload Complete!")
+                        st.balloons()
                 
                 if c_btn2.button("🗑️ Clear Queue"):
                     st.rerun()
             else:
-                st.warning("The uploaded file is empty.")
+                st.warning("The uploaded file appears to be empty.")
         except Exception as e:
-            st.error(f"Excel Error: Ensure you used the provided template. Detail: {e}")
+            st.error(f"Excel Error: {e}")
     else:
         st.info("Upload an Excel file in the sidebar to see the queue here.")
 
