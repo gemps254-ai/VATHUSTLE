@@ -175,7 +175,7 @@ with tab2:
 
 # --- TAB 3: MONTHLY REPORT (Your existing working code) ---
 with tab3:
-    st.subheader(f"Financial Summary: {kra_pin}")
+    st.subheader(f"VAT Summary: {kra_pin}")
     if not kra_pin:
         st.info("Enter PIN in sidebar.")
     else:
