@@ -114,10 +114,18 @@ with st.sidebar:
     kra_pin = kra_pin_raw.upper().strip()
     
     is_valid_pin = bool(re.match(r"^[A-Z]\d{9}[A-Z]$", kra_pin))
-    if kra_pin:
-        if not is_valid_pin: st.warning("⚠️ Invalid PIN format.")
-        else: st.success("✅ PIN Verified")
+    # Create a placeholder for messages
+        msg = st.empty()
 
+        if kra_pin:
+            if not is_valid_pin:
+                msg.warning("⚠️ Invalid PIN format.")
+            else:
+                msg.success("✅ PIN Verified")
+
+                # Auto-disappear after 2 seconds
+                time.sleep(2)
+                msg.empty()
     st.divider() 
     
     enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
