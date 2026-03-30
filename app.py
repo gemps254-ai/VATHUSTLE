@@ -80,18 +80,16 @@ with tab1:
                     existing = conn.read(worksheet=sheet, ttl=0)
                     new_row = pd.DataFrame([{"UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, "Total": round(total), "VAT": round(vat), "eTIMS": "Yes" if is_etims else "No"}])
                    
-            if existing_data is not None and not existing_data.empty:
-                    updated_df = pd.concat([existing_data, new_row], ignore_index=True)
-            else:
-                    updated_df = new_row
-
-                conn.update(worksheet=sheet_name, data=updated_df)
-                st.success(f"✅ Synced to {sheet_name} worksheet!")
-                st.balloons()
-                
-            except Exception as e:
-                st.error(f"❌ Connection Error: {e}")
-
+             if existing_data is not None and not existing_data.empty:
+                        updated_df = pd.concat([existing_data, new_row], ignore_index=True)
+                    else:
+                        updated_df = new_row 
+                    
+                    conn.update(worksheet=sheet, data=pd.concat([existing, new_row], ignore_index=True))
+                    st.success("✅ Saved!")
+                    
+                except Exception as e:
+                    st.error(f"❌ Connection Error: {e}")   
 with tab2:
     # Requirement 3: Reforming the Monthly Report
     st.subheader(f"Summary for KRA PIN: {kra_pin}")
