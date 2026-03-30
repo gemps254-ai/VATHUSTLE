@@ -86,23 +86,35 @@ with tab1:
                     st.error(f"Error: {e}")
 
 with tab2:
+    # Requirement 3: Reforming the Monthly Report
+    st.subheader(f"Financial Summary for PIN: {kra_pin}")
     if not kra_pin:
-        st.info("Enter your PIN to view reports.")
+        st.info("Enter your PIN to view your reports.")
     else:
         if st.button("Refresh Report"):
             try:
-                s_df = conn.read(worksheet="Sales", ttl=0)
-                p_df = conn.read(worksheet="Purchases", ttl=0)
-                u_s = s_df[s_df['UserPIN'] == kra_pin] if s_df is not None else pd.DataFrame()
-                u_p = p_df[p_df['UserPIN'] == kra_pin] if p_df is not None else pd.DataFrame()
-                
-                out_v = u_s['VAT'].sum() if not u_s.empty else 0
-                in_v = u_p['VAT'].sum() if not u_p.empty else 0
-                
+                # Fetch both sheets
+                sales_df = conn.read(worksheet="Sales", ttl=0)
+                purch_df = conn.read(worksheet="Purchases", ttl=0)
+
+                # Filter for THIS user only (Requirement 4 isolation)
+                user_sales = sales_df[sales_df['UserPIN'] == kra_pin] if sales_df is not None else pd.DataFrame()
+                user_purch = purch_df[purch_df['UserPIN'] == kra_pin] if purch_df is not None else pd.DataFrame()
+
+                # Visual Summary
                 c1, c2, c3 = st.columns(3)
-                c1.metric("Output VAT", f"{out_v:,}")
-                c2.metric("Input VAT", f"{in_v:,}")
-                c3.metric("Net Position", f"{out_v - in_v:,}")
-                st.bar_chart(pd.DataFrame({"VAT": [out_v, in_v]}, index=["Sales", "Purchases"]))
+                out_vat = user_sales['VAT'].sum() if not user_sales.empty else 0
+                in_vat = user_purch['VAT'].sum() if not user_purch.empty else 0
+                
+                c1.metric("Output VAT (Sales)", f"KES {out_vat:,.0f}")
+                c2.metric("Input VAT (Purchases)", f"KES {in_vat:,.0f}")
+                c3.metric("VAT Payable/Credit", f"KES {(out_vat - in_vat):,.0f}", delta_color="inverse")
+
+                st.divider()
+                st.write("### Recent Sales")
+                st.dataframe(user_sales.tail(5), use_container_width=True)
+                
+                st.write("### Recent Purchases")
+                st.dataframe(user_purch.tail(5), use_container_width=True)
             except:
-                st.error("Could not fetch data.")
+                st.error("Could not retrieve data. Ensure 'UserPIN' column exists in your Google Sheets.")
