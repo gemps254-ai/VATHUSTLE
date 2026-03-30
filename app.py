@@ -350,19 +350,42 @@ with tab3:
                 m2.metric("Input VAT", f"KES {i_v:,.0f}")
                 m3.metric("Net VAT", f"KES {abs(n_v):,.0f}", delta="Due to KRA" if n_v > 0 else "Credit")
 
-                # PDF DOWNLOAD SECTION
+                       # --- PDF DOWNLOAD SECTION ---
                 st.write("---")
+                
+                # 1. Initialize the session state key if it doesn't exist
+                if "pdf_report_bytes" not in st.session_state:
+                    st.session_state.pdf_report_bytes = None
+                
+                # 2. The 'Prepare' button generates the data and saves it to session_state
                 if st.button("📄 Prepare Final PDF Report", use_container_width=True):
                     try:
-                # Generate the PDF data using both u_s (Sales) and u_p (Purchases)
-                        pdf_bytes = create_full_vat_report(u_s, u_p, kra_pin, f"{sel_month_name} {sel_year}", o_v, i_v, n_v)
-        
-        # Provide the download button after generation
-                        st.download_button(label="📥 Download Complete Report (PDF)", data=pdf_bytes, file_name=f"VAT_Report_{sel_month_name}_{sel_year}.pdf",
-            mime="application/pdf", use_container_width=True)
-                        st.success("PDF generated successfully!")
+                        with st.spinner("Generating professional PDF..."):
+                            pdf_bytes = create_full_vat_report(
+                                u_s, u_p, 
+                                kra_pin, 
+                                f"{sel_month_name} {sel_year}", 
+                                o_v, i_v, n_v
+                            )
+                            st.session_state.pdf_report_bytes = pdf_bytes
+                            st.success("✅ PDF ready for download!")
                     except Exception as e:
                         st.error(f"PDF Error: {e}")
+                
+                # 3. Only show the Download button if the PDF exists in session_state
+                if st.session_state.pdf_report_bytes is not None:
+                    st.download_button(
+                        label="📥 Download Complete Report (PDF)", 
+                        data=st.session_state.pdf_report_bytes, 
+                        file_name=f"VAT_Report_{sel_month_name}_{sel_year}.pdf",
+                        mime="application/pdf", 
+                        use_container_width=True
+                    )
+                    
+                    # Optional: Add a button to reset/clear the generated PDF
+                    if st.button("🔄 Clear/Reset Report"):
+                        st.session_state.pdf_report_bytes = None
+                        st.rerun()
                
                 st.divider()
                 st.write("**Recent Records**")            
