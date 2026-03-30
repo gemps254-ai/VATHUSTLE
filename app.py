@@ -54,7 +54,7 @@ with st.sidebar:
     st.download_button(
         label="📥 Download Excel Template",
         data=template_data,
-        file_name="vathustle_template.xlsx",
+        file_name="BulkVAT_template.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
     
