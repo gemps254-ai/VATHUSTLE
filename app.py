@@ -64,7 +64,8 @@ with st.sidebar:
     st.divider()
     today = date.today()
     deadline = date(today.year, today.month, 20) if today.day <= 20 else date(today.year, today.month + 1, 20)
-    st.metric("Days to Filing", f"{(deadline - today).days} Days")
+    st.metric("Days to Filing Deadline", f"{(deadline - today).days} Days")
+    st.caption("Deadline: 20th of every month")
 
 # 4. Main Interface
 tab1, tab2, tab3 = st.tabs(["➕ Single Entry", "📑 Bulk Queue", "📊 Monthly Report"])
