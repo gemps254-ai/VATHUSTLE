@@ -10,7 +10,7 @@ CURRENT_VAT_RATE = 0.16
 VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE 
 
 # 1. Setup Page & Styling
-st.set_page_config(page_title="VAT Tracker Kenya", layout="wide", page_icon="🇰🇪")
+st.set_page_config(page_title="VAT Tracker Kenya", layout="wide", page_icon="GEMPS")
 
 st.markdown("""
     <style>
@@ -38,7 +38,7 @@ def generate_excel_template():
 # 3. Sidebar: Business Profile & Bulk Features
 with st.sidebar:
     
-    st.header("Business Profile")
+    st.header("🏢 Business Profile")
     kra_pin_raw = st.text_input("Your KRA PIN", placeholder="e.g., A012345678Z")
     kra_pin = kra_pin_raw.upper().strip()
     
