@@ -1,3 +1,4 @@
+import pytz
 import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 import pandas as pd
@@ -52,9 +53,27 @@ with st.sidebar:
     enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
 
     
-    today = date.today()
-    deadline = date(today.year, today.month, 20) if today.day <= 20 else date(today.year, today.month + 1, 20)
-    st.metric("Days to Filing Deadline", f"{(deadline - today).days} Days")
+    # 1. Get current time specifically for Kenya
+    kenya_tz = pytz.timezone('Africa/Nairobi')
+    now_kenya = datetime.now(kenya_tz)
+    today = now_kenya.date()
+
+    # 2. Logic for the 20th of the month
+    if today.day <= 20:
+        deadline = date(today.year, today.month, 20)
+    else:
+        # If past the 20th, move to the 20th of next month
+        if today.month == 12:
+            deadline = date(today.year + 1, 1, 20)
+        else:
+            deadline = date(today.year, today.month + 1, 20)
+
+    # 3. Calculate days remaining
+    days_remaining = (deadline - today).days
+    
+    st.metric("Days to Filing Deadline", f"{days_remaining} Days")
+    st.caption(f"Current Date (KE): {today.strftime('%d %b %Y')}")
+    st.caption("Deadline: 20th of every month")
         
     st.divider()
     st.subheader("Bulk Upload")
