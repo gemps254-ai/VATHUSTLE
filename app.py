@@ -229,6 +229,9 @@ with tab3:
 
         if st.button(f"Generate Report for {sel_month_name} {sel_year}"):
             try:
+                # 1. Initialize variables to 0 so they are ALWAYS defined
+                o_v, i_v, n_v = 0.0, 0.0, 0.0
+                
                 s_df = conn.read(worksheet="Sales", ttl=0)
                 p_df = conn.read(worksheet="Purchases", ttl=0)
 # 1. Ensure DataFrames aren't None and handle empty sheets
