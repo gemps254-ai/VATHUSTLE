@@ -48,9 +48,8 @@ with tab1:
     if st.button("Save to Cloud"):
         try:
             # 1. Pull existing data to see what's already there
-            # We specify the worksheet name (make sure it matches your Google Sheet tab!)
             existing_data = conn.read(worksheet="Sales", ttl=0) 
-        
+            
             # 2. Create the new row as a small table
             new_row = pd.DataFrame([{
                 "Date": str(t_date),
@@ -62,14 +61,17 @@ with tab1:
             }])
 
             # 3. Combine the old data with the new row
-            updated_df = pd.concat([existing_data, new_row], ignore_index=True)
+            # If the sheet was empty, existing_data might be empty/None
+            if existing_data is not None and not existing_data.empty:
+                updated_df = pd.concat([existing_data, new_row], ignore_index=True)
+            else:
+                updated_df = new_row
 
             # 4. Push the whole thing back to Google Sheets
             conn.update(worksheet="Sales", data=updated_df)
-        
+            
             st.success("✅ Transaction synced successfully to Google Sheets!")
             st.balloons()
-        
+            
         except Exception as e:
             st.error(f"❌ Error saving to Google Sheets: {e}")
-            st.info("Check your 'Manage App > Logs' for the full error details.")
