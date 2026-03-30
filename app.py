@@ -47,7 +47,7 @@ with st.sidebar:
         else: st.success("✅ PIN Verified")
 
     enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
-    st.info(f"Current KRA VAT Rate: {int(CURRENT_VAT_RATE*100)}%")
+    st.info(f"Karibu%")
     
     st.divider()
     st.subheader("Bulk Upload")
@@ -55,7 +55,7 @@ with st.sidebar:
     # Feature 1: Download Template
     template_data = generate_excel_template()
     st.download_button(
-        label="📥 Download Excel Template",
+        label="Download Excel Template",
         data=template_data,
         file_name="BulkVAT_template.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
