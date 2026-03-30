@@ -112,9 +112,7 @@ with tab2:
     st.subheader("📋 Bulk Upload Queue")
     if not kra_pin:
         st.info("👋 Enter KRA PIN in sidebar to start.")
-    else:    
-    
-    if uploaded_file and kra_pin:
+    elif uploaded_file:
         try:
             # Read both sheets
             up_sales = pd.read_excel(uploaded_file, sheet_name='Sales')
