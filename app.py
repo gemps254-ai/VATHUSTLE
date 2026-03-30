@@ -250,9 +250,9 @@ with tab3:
                 if u_s.empty and u_p.empty:
                     st.warning(f"No transactions found for {sel_month_name} {sel_year}.")
                 else:
-                o_v = u_s['VAT'].astype(float).sum() if not u_s.empty else 0
-                i_v = u_p['VAT'].astype(float).sum() if not u_p.empty else 0
-                n_v = o_v - i_v
+                    o_v = u_s['VAT'].astype(float).sum() if not u_s.empty else 0
+                    i_v = u_p['VAT'].astype(float).sum() if not u_p.empty else 0
+                    n_v = o_v - i_v
 
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Output VAT", f"KES {o_v:,.0f}")
