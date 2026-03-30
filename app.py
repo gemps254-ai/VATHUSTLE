@@ -130,10 +130,8 @@ with tab1:
                 except Exception as e:
                     st.error(f"Error: {e}")
 
-# --- TAB 2: BULK QUEUE (New Feature) ---
 # --- TAB 2: BULK QUEUE (Integrated with Global VAT Toggle) ---
 with tab2:
-    st.subheader("📋 Bulk Upload Queue")
     if not kra_pin:
         st.info("👋 Enter KRA PIN in sidebar to start.")
     elif uploaded_file:
