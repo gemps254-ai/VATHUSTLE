@@ -85,26 +85,46 @@ with tab1:
             st.subheader("Record New Entry")
             t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
             col1, col2 = st.columns(2)
+            
             with col1:
                 t_date = st.date_input("Invoice Date", date.today())
                 amount = st.number_input("Total Amount (KES)", min_value=0, step=1, format="%d")
+            
             with col2:
                 other_pin = st.text_input("Counterparty PIN").upper()
                 is_etims = st.toggle("eTIMS Certified?", value=True)
-                calc_mode = st.radio("Pricing Type", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
+                
+                # Link to Sidebar Toggle
+                if enable_vat_calc:
+                    calc_mode = st.radio("Pricing Type", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
+                else:
+                    st.caption("VAT Calculation: **OFF**")
+                    calc_mode = "Exempt"
 
-            if calc_mode == "VAT Inclusive":
-                vat_val = amount - (amount / VAT_MULTIPLIER)
-                total_to_save = amount
+            # Calculation Logic
+            if enable_vat_calc:
+                if calc_mode == "VAT Inclusive":
+                    vat_val = amount - (amount / VAT_MULTIPLIER)
+                    total_to_save = amount
+                else:
+                    vat_val = amount * CURRENT_VAT_RATE
+                    total_to_save = amount + vat_val
             else:
-                vat_val = amount * CURRENT_VAT_RATE
-                total_to_save = amount + vat_val
+                vat_val = 0
+                total_to_save = amount
 
             if st.form_submit_button("Save to Cloud"):
                 try:
                     sheet_name = "Sales" if "Sales" in t_type else "Purchases"
                     existing_data = conn.read(worksheet=sheet_name, ttl=0)
-                    new_entry = pd.DataFrame([{"UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, "Total": int(round(total_to_save)), "VAT": int(round(vat_val)), "eTIMS": "Yes" if is_etims else "No"}])
+                    new_entry = pd.DataFrame([{
+                        "UserPIN": kra_pin, 
+                        "Date": str(t_date), 
+                        "CounterpartyPIN": other_pin, 
+                        "Total": int(round(total_to_save)), 
+                        "VAT": int(round(vat_val)), 
+                        "eTIMS": "Yes" if is_etims else "No"
+                    }])
                     conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
                     st.success("✅ Saved!")
                 except Exception as e:
