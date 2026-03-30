@@ -219,6 +219,7 @@ with tab3:
     else:
         c_month, c_year = st.columns(2)
         list_months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        
         with c_month:
             sel_month_name = st.selectbox("Month", list_months, index=date.today().month - 1)
             sel_month_num = list_months.index(sel_month_name) + 1
@@ -234,22 +235,22 @@ with tab3:
                 
                 s_df = conn.read(worksheet="Sales", ttl=0)
                 p_df = conn.read(worksheet="Purchases", ttl=0)
-# 1. Ensure DataFrames aren't None and handle empty sheets
+
+                # 2. Process Sales Data
                 if s_df is None or s_df.empty:
                     u_s = pd.DataFrame()
                 else:
-            # FIX: Convert Date to string before using .str accessor
                     s_df['Date'] = s_df['Date'].astype(str)
                     u_s = s_df[(s_df['UserPIN'] == kra_pin) & (s_df['Date'].str.startswith(filter_str))]
 
+                # 3. Process Purchases Data
                 if p_df is None or p_df.empty:
                     u_p = pd.DataFrame()
                 else:
-            # FIX: Convert Date to string before using .str accessor
                     p_df['Date'] = p_df['Date'].astype(str)
                     u_p = p_df[(p_df['UserPIN'] == kra_pin) & (p_df['Date'].str.startswith(filter_str))]
 
-        # 2. Proceed with Metrics (only if data exists)
+                # 4. Calculation Logic
                 if u_s.empty and u_p.empty:
                     st.warning(f"No transactions found for {sel_month_name} {sel_year}.")
                 else:
@@ -257,6 +258,7 @@ with tab3:
                     i_v = u_p['VAT'].astype(float).sum() if not u_p.empty else 0
                     n_v = o_v - i_v
 
+                # 5. Display Metrics
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Output VAT", f"KES {o_v:,.0f}")
                 m2.metric("Input VAT", f"KES {i_v:,.0f}")
@@ -266,9 +268,9 @@ with tab3:
                 st.write("**Recent Records**")            
                 col_l, col_r = st.columns(2)
                 curr_cfg = {"Total": st.column_config.NumberColumn(format="KES %,d"), "VAT": st.column_config.NumberColumn(format="KES %,d")}
+                
                 with col_l:
                     st.write("**Sales Log**")
-        # Check if u_s is not empty AND has the required columns
                     if not u_s.empty and set(['Date', 'CounterpartyPIN', 'Total', 'VAT']).issubset(u_s.columns):
                         st.dataframe(u_s[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
                     else:
@@ -276,8 +278,10 @@ with tab3:
 
                 with col_r:
                     st.write("**Purchases Log**")
-        # Check if u_p is not empty AND has the required columns
                     if not u_p.empty and set(['Date', 'CounterpartyPIN', 'Total', 'VAT']).issubset(u_p.columns):
                         st.dataframe(u_p[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
                     else:
-                       st.info("No purchase records to display.")
+                        st.info("No purchase records to display.")
+                        
+            except Exception as e:
+                st.error(f"Error generating report: {e}")
