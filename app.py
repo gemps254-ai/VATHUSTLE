@@ -280,4 +280,4 @@ with tab3:
                     if not u_p.empty and set(['Date', 'CounterpartyPIN', 'Total', 'VAT']).issubset(u_p.columns):
                         st.dataframe(u_p[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
                     else:
-                    st.info("No purchase records to display.")
+                       st.info("No purchase records to display.")
