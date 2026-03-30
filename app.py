@@ -6,6 +6,41 @@ from datetime import datetime, date
 import re
 import io
 
+from fpdf import FPDF
+
+def create_pdf(data, pin, period):
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Header
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(200, 10, txt="VatHustle Kenya - Monthly Summary", ln=True, align='C')
+    
+    # Business Info
+    pdf.set_font("Arial", size=12)
+    pdf.cell(200, 10, txt=f"Business PIN: {pin}", ln=True, align='L')
+    pdf.cell(200, 10, txt=f"Reporting Period: {period}", ln=True, align='L')
+    pdf.ln(10)
+    
+    # Table Header
+    pdf.set_fill_color(200, 220, 255)
+    pdf.set_font("Arial", 'B', 10)
+    pdf.cell(40, 10, "Date", 1, 0, 'C', True)
+    pdf.cell(60, 10, "Counterparty", 1, 0, 'C', True)
+    pdf.cell(45, 10, "Amount (KES)", 1, 0, 'C', True)
+    pdf.cell(45, 10, "VAT (KES)", 1, 1, 'C', True)
+    
+    # Table Data
+    pdf.set_font("Arial", size=10)
+    for index, row in data.iterrows():
+        pdf.cell(40, 10, str(row['Date']), 1)
+        pdf.cell(60, 10, str(row['CounterpartyPIN']), 1)
+        pdf.cell(45, 10, f"{row['Total']:,.2f}", 1)
+        pdf.cell(45, 10, f"{row['VAT']:,.2f}", 1, 1)
+        
+    return pdf.output(dest='S').encode('latin-1')
+
+
 # --- GLOBAL CONFIGURATION ---
 CURRENT_VAT_RATE = 0.16  
 VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE 
