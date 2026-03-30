@@ -37,6 +37,8 @@ def generate_excel_template():
 
 # 3. Sidebar: Business Profile & Bulk Features
 with st.sidebar:
+    
+    st.divider()
     st.header("Business Profile")
     kra_pin_raw = st.text_input("Your KRA PIN", placeholder="e.g., A012345678Z")
     kra_pin = kra_pin_raw.upper().strip()
