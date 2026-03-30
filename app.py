@@ -46,30 +46,30 @@ with tab1:
 
 # --- UPDATED SAVE LOGIC ---
     if st.button("Save to Cloud"):
-    try:
-        # 1. Pull existing data to see what's already there
-        # We specify the worksheet name (make sure it matches your Google Sheet tab!)
-        existing_data = conn.read(worksheet="Sales", ttl=0) 
+        try:
+            # 1. Pull existing data to see what's already there
+            # We specify the worksheet name (make sure it matches your Google Sheet tab!)
+            existing_data = conn.read(worksheet="Sales", ttl=0) 
         
-        # 2. Create the new row as a small table
-        new_row = pd.DataFrame([{
-            "Date": str(t_date),
-            "Type": t_type,
-            "PIN": other_pin,
-            "Total": amount,
-            "VAT": round(vat_amount, 2),
-            "eTIMS": "Yes" if is_etims else "No"
-        }])
+            # 2. Create the new row as a small table
+            new_row = pd.DataFrame([{
+                "Date": str(t_date),
+                "Type": t_type,
+                "PIN": other_pin,
+                "Total": amount,
+                "VAT": round(vat_amount, 2),
+                "eTIMS": "Yes" if is_etims else "No"
+            }])
 
-        # 3. Combine the old data with the new row
-        updated_df = pd.concat([existing_data, new_row], ignore_index=True)
+            # 3. Combine the old data with the new row
+            updated_df = pd.concat([existing_data, new_row], ignore_index=True)
 
-        # 4. Push the whole thing back to Google Sheets
-        conn.update(worksheet="Sales", data=updated_df)
+            # 4. Push the whole thing back to Google Sheets
+            conn.update(worksheet="Sales", data=updated_df)
         
-        st.success("✅ Transaction synced successfully to Google Sheets!")
-        st.balloons()
+            st.success("✅ Transaction synced successfully to Google Sheets!")
+            st.balloons()
         
-    except Exception as e:
-        st.error(f"❌ Error saving to Google Sheets: {e}")
-        st.info("Check your 'Manage App > Logs' for the full error details.")
+        except Exception as e:
+            st.error(f"❌ Error saving to Google Sheets: {e}")
+            st.info("Check your 'Manage App > Logs' for the full error details.")
