@@ -233,23 +233,23 @@ with tab3:
                 p_df = conn.read(worksheet="Purchases", ttl=0)
 # 1. Ensure DataFrames aren't None and handle empty sheets
                 if s_df is None or s_df.empty:
-                u_s = pd.DataFrame()
-            else:
+                    u_s = pd.DataFrame()
+                else:
             # FIX: Convert Date to string before using .str accessor
-                s_df['Date'] = s_df['Date'].astype(str)
-                u_s = s_df[(s_df['UserPIN'] == kra_pin) & (s_df['Date'].str.startswith(filter_str))]
+                    s_df['Date'] = s_df['Date'].astype(str)
+                    u_s = s_df[(s_df['UserPIN'] == kra_pin) & (s_df['Date'].str.startswith(filter_str))]
 
-            if p_df is None or p_df.empty:
-                u_p = pd.DataFrame()
-            else:
+                if p_df is None or p_df.empty:
+                    u_p = pd.DataFrame()
+                else:
             # FIX: Convert Date to string before using .str accessor
-                p_df['Date'] = p_df['Date'].astype(str)
-                u_p = p_df[(p_df['UserPIN'] == kra_pin) & (p_df['Date'].str.startswith(filter_str))]
+                    p_df['Date'] = p_df['Date'].astype(str)
+                    u_p = p_df[(p_df['UserPIN'] == kra_pin) & (p_df['Date'].str.startswith(filter_str))]
 
         # 2. Proceed with Metrics (only if data exists)
-            if u_s.empty and u_p.empty:
-                st.warning(f"No transactions found for {sel_month_name} {sel_year}.")
-            else:
+                if u_s.empty and u_p.empty:
+                    st.warning(f"No transactions found for {sel_month_name} {sel_year}.")
+                else:
                 o_v = u_s['VAT'].astype(float).sum() if not u_s.empty else 0
                 i_v = u_p['VAT'].astype(float).sum() if not u_p.empty else 0
                 n_v = o_v - i_v
