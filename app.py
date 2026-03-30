@@ -37,11 +37,13 @@ with st.sidebar:
     
     enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
     st.divider()
+
+    st.info("Deadline: 20th of every month")
     
     # Deadline Countdown
     today = date.today()
     deadline = date(today.year, today.month, 20) if today.day <= 20 else date(today.year, today.month + 1, 20)
-    st.metric("Days to Filing", f"{(deadline - today).days} Days")
+    st.metric("Days to Filing Deadline", f"{(deadline - today).days} Days")
 
 # 4. Main Interface - UNLOCKED
 # We remove the "if not is_valid_pin" gate so the app is never blank
