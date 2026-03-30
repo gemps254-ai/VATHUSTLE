@@ -150,8 +150,9 @@ with st.sidebar:
     # 3. Calculate days remaining
     days_remaining = (deadline - today).days
     
+    st.metric("Days to Next Deadline",f"{days_remaining} Days")
     st.caption(f"Current Date & Time: {now_kenya.strftime('%d %b %Y %H:%M')}")
-    st.metric("VAT Filing Countdown",f"{days_remaining} Days")
+    
     st.divider()
     st.subheader("Bulk Upload")
     
