@@ -202,7 +202,7 @@ with tab3:
                 m1, m2, m3 = st.columns(3)
                 m1.metric("Output VAT", f"KES {o_v:,.0f}")
                 m2.metric("Input VAT", f"KES {i_v:,.0f}")
-                m3.metric("Net VAT", f"KES {abs(n_v):,.0f}", delta_color="Due to KRA" if n_v > 0 else "Credit")
+                m3.metric("Net VAT", f"KES {abs(n_v):,.0f}", delta="Due to KRA" if n_v > 0 else "Credit")
 
                 st.divider()
                 st.write("**Recent Records**")
