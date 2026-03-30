@@ -72,9 +72,8 @@ with st.sidebar:
     days_remaining = (deadline - today).days
     
     st.metric("Days to Filing Deadline", f"{days_remaining} Days")
-    st.caption(f"Current Date (KE): {today.strftime('%d %b %Y')}")
-    st.caption("Deadline: 20th of every month")
-        
+    st.caption(f"Current Date in Kenya: {today.strftime('%d %b %Y')}")
+            
     st.divider()
     st.subheader("Bulk Upload")
     
