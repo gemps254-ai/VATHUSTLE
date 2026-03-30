@@ -45,7 +45,7 @@ def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
     # --- HELPER TO BUILD TABLES ---
     def build_table(header_text, df):
         pdf.set_font("Arial", 'B', 12)
-        pdf.cell(0, 10, header_text, 0, 1, 'L')
+        pdf.cell(0, 10, header_text, 0, 1, 'C')
         
         pdf.set_fill_color(31, 119, 180) # Blue header
         pdf.set_text_color(255, 255, 255)
@@ -61,10 +61,10 @@ def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
             pdf.cell(185, 8, "No records found.", 1, 1, 'C')
         else:
             for _, row in df.iterrows():
-                pdf.cell(35, 8, str(row['Date']), 1)
-                pdf.cell(60, 8, str(row['CounterpartyPIN']), 1)
-                pdf.cell(45, 8, f"{row['Total']:,.2f}", 1, 0, 'R')
-                pdf.cell(45, 8, f"{row['VAT']:,.2f}", 1, 1, 'R')
+                pdf.cell(35, 8, str(row['Date']), 1, 0, 'C')
+                pdf.cell(60, 8, str(row['CounterpartyPIN']), 1, 0, 'C')
+                pdf.cell(45, 8, f"{row['Total']:,.2f}", 1, 0, 'C')
+                pdf.cell(45, 8, f"{row['VAT']:,.2f}", 1, 1, 'C')
         pdf.ln(5)
 
     # Build both tables
