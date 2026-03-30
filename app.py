@@ -189,7 +189,7 @@ with tab3:
 
         filter_str = f"{sel_year}-{sel_month_num:02d}"
 
-        if st.button(f"Generate Report for {sel_month_name}"):
+        if st.button(f"Generate Report for {sel_month_name} {sel_year}"):
             try:
                 s_df = conn.read(worksheet="Sales", ttl=0)
                 p_df = conn.read(worksheet="Purchases", ttl=0)
