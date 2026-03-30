@@ -45,6 +45,9 @@ with st.sidebar:
     if kra_pin:
         if not is_valid_pin: st.warning("⚠️ Invalid PIN format.")
         else: st.success("✅ PIN Verified")
+
+    enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
+    st.info(f"Current KRA VAT Rate: {int(CURRENT_VAT_RATE*100)}%")
     
     st.divider()
     st.header("📤 Bulk Upload")
