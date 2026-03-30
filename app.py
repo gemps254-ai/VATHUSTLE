@@ -411,5 +411,5 @@ with tab3:
                 else:
                     st.info("No purchase records to display for this period.")
                     
-        except Exception as e:
+    except Exception as e:
                     st.error(f"Error generating report: {e}")
