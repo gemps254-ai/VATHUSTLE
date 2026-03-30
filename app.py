@@ -38,7 +38,6 @@ def generate_excel_template():
 # 3. Sidebar: Business Profile & Bulk Features
 with st.sidebar:
     
-    st.divider()
     st.header("Business Profile")
     kra_pin_raw = st.text_input("Your KRA PIN", placeholder="e.g., A012345678Z")
     kra_pin = kra_pin_raw.upper().strip()
@@ -48,7 +47,9 @@ with st.sidebar:
         if not is_valid_pin: st.warning("⚠️ Invalid PIN format.")
         else: st.success("✅ PIN Verified")
 
+    
     enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
+
     
     today = date.today()
     deadline = date(today.year, today.month, 20) if today.day <= 20 else date(today.year, today.month + 1, 20)
