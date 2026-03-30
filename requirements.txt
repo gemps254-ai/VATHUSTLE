@@ -3,3 +3,4 @@ st-gsheets-connection
 pandas
 xlsxwriter
 openpyxl
+pytz
