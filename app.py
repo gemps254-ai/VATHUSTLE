@@ -5,7 +5,7 @@ from datetime import datetime, date
 import re
 
 # 1. Setup Page & Custom Styling
-st.set_page_config(page_title="VatHustle Kenya", layout="wide", page_icon="🇰🇪")
+st.set_page_config(page_title="VAT Tracker Kenya", layout="wide", page_icon="🇰🇪")
 
 # CSS to hide the +/- increment buttons
 st.markdown("""
@@ -15,7 +15,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🇰🇪 VatHustle: SME VAT Tracker")
+st.title("🇰🇪 VAT Tracker")
 
 # 2. Connection
 conn = st.connection("gsheets", type=GSheetsConnection)
