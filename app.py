@@ -211,7 +211,7 @@ with tab3:
                 curr_cfg = {"Total": st.column_config.NumberColumn(format="KES %,d"), "VAT": st.column_config.NumberColumn(format="KES %,d")}
                 with col_l:
                      st.write("**Sales Log**")
-                    st.dataframe(u_s[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)     
+                    st.dataframe(u_s[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
                 with col_r:
                     st.write("**Purchases Log**")
                     st.dataframe(u_p[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
