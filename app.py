@@ -9,38 +9,19 @@ import io
 CURRENT_VAT_RATE = 0.16  
 VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE 
 
-# 1. Setup Page & ADVANCED Custom Styling
-st.set_page_config(page_title="VatHustle Kenya", layout="wide", page_icon="🇰🇪")
+# 1. Setup Page & Styling
+st.set_page_config(page_title="VAT Tracker Kenya", layout="wide", page_icon="🇰🇪")
 
 st.markdown("""
     <style>
-    /* Main Background Gradient */
-    .stApp {
-        background: linear-gradient(to right, #ece9e6, #ffffff);
-    }
-    
-    /* Sidebar Styling */
-    [data-testid="stSidebar"] {
-        background-color: #0e1117 !important;
-    }
-    
-    /* Metric Card Styling */
-    [data-testid="stMetricValue"] { font-size: 1.8rem; font-weight: 800; color: #1f77b4; }
-    div[data-testid="metric-container"] {
-        background-color: white;
-        border: 1px solid #e6e9ef;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-    }
-    
-    /* Input Styling */
     input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     input[type=number] { -moz-appearance: textfield; }
+    [data-testid="stMetricValue"] { font-size: 1.6rem; font-weight: 700; }
+    div[data-testid="metric-container"] { background-color: #f9f9f9; border: 1px solid #e0e0e0; padding: 15px; border-radius: 10px; }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🇰🇪 VatHustle")
+st.title("🇰🇪 VAT Tracker")
 
 # 2. Connection
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -54,112 +35,223 @@ def generate_excel_template():
         pd.DataFrame(columns=cols).to_excel(writer, sheet_name='Purchases', index=False)
     return output.getvalue()
 
-# 3. Sidebar
+# 3. Sidebar: Business Profile & Bulk Features
 with st.sidebar:
-    st.header("🏢 Business Profile")
-    kra_pin_raw = st.text_input("KRA PIN", placeholder="A012345678Z")
+    
+    st.header("Business Profile")
+    kra_pin_raw = st.text_input("Your KRA PIN", placeholder="e.g., A012345678Z")
     kra_pin = kra_pin_raw.upper().strip()
     
     is_valid_pin = bool(re.match(r"^[A-Z]\d{9}[A-Z]$", kra_pin))
     if kra_pin:
-        if not is_valid_pin: st.warning("⚠️ Invalid Format")
+        if not is_valid_pin: st.warning("⚠️ Invalid PIN format.")
         else: st.success("✅ PIN Verified")
 
-    st.divider()
-    enable_vat_calc = st.toggle("Enable Tax Logic", value=True)
+    st.divider() 
     
-    # Filing Countdown
+    enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
+
+    
     today = date.today()
-    deadline = date(today.year, today.month, 20) if today.day <= 20 else date(today.year, (today.month % 12) + 1, 20)
-    st.metric("Days to Filing", f"{(deadline - today).days}")
-    
+    deadline = date(today.year, today.month, 20) if today.day <= 20 else date(today.year, today.month + 1, 20)
+    st.metric("Days to Filing Deadline", f"{(deadline - today).days} Days")
+        
     st.divider()
-    st.subheader("📤 Bulk Upload")
+    st.subheader("Bulk Upload")
+    
+    # Feature 1: Download Template
     template_data = generate_excel_template()
-    st.download_button("📥 Download Template", data=template_data, file_name="VatHustle_Template.xlsx")
-    uploaded_file = st.file_uploader("Upload XLSX", type=["xlsx"])
-
+    st.download_button(
+        label="Download Excel Template",
+        data=template_data,
+        file_name="BulkVAT_template.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+    
+    # Feature 2: Upload File
+    uploaded_file = st.file_uploader("📤 Upload filled template", type=["xlsx"])
+    
+   
 # 4. Main Interface
-tab1, tab2, tab3 = st.tabs(["➕ Single Entry", "📑 Bulk Queue", "📊 Reports"])
+tab1, tab2, tab3 = st.tabs(["➕ Single Entry", "📑 Bulk Queue", "📊 Monthly Report"])
 
+# --- TAB 1: SINGLE ENTRY (Your existing working code) ---
 with tab1:
     if not kra_pin:
-        st.info("👋 Please enter your PIN in the sidebar.")
+        st.info("👋 Enter KRA PIN in sidebar to start.")
     else:
-        with st.form("single_entry", clear_on_submit=True):
-            st.subheader("New Transaction")
+        with st.form("transaction_form", clear_on_submit=True):
+            st.subheader("Record New Entry")
+            t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
             col1, col2 = st.columns(2)
+            
             with col1:
-                t_type = st.selectbox("Type", ["Sales (Output)", "Purchases (Input)"])
-                t_date = st.date_input("Date", date.today())
-                amount = st.number_input("Total Amount", min_value=0, step=1)
+                t_date = st.date_input("Invoice Date", date.today())
+                amount = st.number_input("Total Amount (KES)", min_value=0, step=1, format="%d")
+            
             with col2:
                 other_pin = st.text_input("Counterparty PIN").upper()
-                calc_mode = st.radio("VAT Treatment", ["VAT Inclusive", "VAT Exclusive"]) if enable_vat_calc else "Exempt"
-
-            if st.form_submit_button("Submit Transaction"):
-                # Logic
-                if enable_vat_calc:
-                    v = amount - (amount/VAT_MULTIPLIER) if calc_mode == "VAT Inclusive" else amount * CURRENT_VAT_RATE
-                    t = amount if calc_mode == "VAT Inclusive" else amount + v
-                else: v, t = 0, amount
+                is_etims = st.toggle("eTIMS Certified?", value=True)
                 
-                sheet = "Sales" if "Sales" in t_type else "Purchases"
-                existing = conn.read(worksheet=sheet, ttl=0)
-                new_row = pd.DataFrame([{"UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, "Total": int(round(t)), "VAT": int(round(v)), "eTIMS": "Yes"}])
-                conn.update(worksheet=sheet, data=pd.concat([existing, new_row], ignore_index=True))
-                st.success("Transaction Logged!")
+                # Link to Sidebar Toggle
+                if enable_vat_calc:
+                    calc_mode = st.radio("Pricing Type", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
+                else:
+                    st.caption("VAT Calculation: **OFF**")
+                    calc_mode = "Exempt"
 
+            # Calculation Logic
+            if enable_vat_calc:
+                if calc_mode == "VAT Inclusive":
+                    vat_val = amount - (amount / VAT_MULTIPLIER)
+                    total_to_save = amount
+                else:
+                    vat_val = amount * CURRENT_VAT_RATE
+                    total_to_save = amount + vat_val
+            else:
+                vat_val = 0
+                total_to_save = amount
+
+            if st.form_submit_button("Save to Cloud"):
+                try:
+                    sheet_name = "Sales" if "Sales" in t_type else "Purchases"
+                    existing_data = conn.read(worksheet=sheet_name, ttl=0)
+                    new_entry = pd.DataFrame([{
+                        "UserPIN": kra_pin, 
+                        "Date": str(t_date), 
+                        "CounterpartyPIN": other_pin, 
+                        "Total": int(round(total_to_save)), 
+                        "VAT": int(round(vat_val)), 
+                        "eTIMS": "Yes" if is_etims else "No"
+                    }])
+                    conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
+                    st.success("✅ Saved!")
+                except Exception as e:
+                    st.error(f"Error: {e}")
+
+# --- TAB 2: BULK QUEUE (Integrated with Global VAT Toggle) ---
 with tab2:
-    st.subheader("📑 Bulk Transaction Queue")
     if not kra_pin:
-        st.info("Enter PIN to access queue.")
+        st.info("👋 Enter KRA PIN in sidebar to start.")
     elif uploaded_file:
         try:
-            up_s = pd.read_excel(uploaded_file, sheet_name='Sales', engine='openpyxl')
-            up_p = pd.read_excel(uploaded_file, sheet_name='Purchases', engine='openpyxl')
+            # Read both sheets
+            up_sales = pd.read_excel(uploaded_file, sheet_name='Sales', engine='openpyxl')
+            up_purch = pd.read_excel(uploaded_file, sheet_name='Purchases', engine='openpyxl')
             
-            def process(df, is_sale):
+            def process_bulk(df, is_sale):
                 if df.empty: return pd.DataFrame()
-                data = []
-                for _, r in df.dropna(subset=['Amount']).iterrows():
-                    amt = float(r['Amount'])
+                processed = []
+                for _, row in df.dropna(subset=['Amount']).iterrows():
+                    amt = float(row['Amount'])
+                    
+                    # Logic: If toggle is OFF, VAT is always 0. 
+                    # If toggle is ON, we look at the Excel row's VAT_Type.
                     if enable_vat_calc:
-                        vt = str(r['VAT_Type (Inclusive/Exclusive/Exempt)'])
-                        v = amt - (amt/VAT_MULTIPLIER) if "Inclusive" in vt else (amt * CURRENT_VAT_RATE if "Exclusive" in vt else 0)
-                        t = amt if "Inclusive" in vt else (amt + v if "Exclusive" in vt else amt)
-                    else: v, t = 0, amt
-                    data.append({"UserPIN": kra_pin, "Date": str(r['Date (YYYY-MM-DD)']).split(" ")[0], "CounterpartyPIN": str(r['CounterpartyPIN']), "Total": int(round(t)), "VAT": int(round(v)), "Category": "Sales" if is_sale else "Purchases"})
-                return pd.DataFrame(data)
+                        v_type = str(row['VAT_Type (Inclusive/Exclusive/Exempt)'])
+                        if "Inclusive" in v_type:
+                            v = amt - (amt / VAT_MULTIPLIER)
+                            t = amt
+                        elif "Exclusive" in v_type:
+                            v = amt * CURRENT_VAT_RATE
+                            t = amt + v
+                        else: # Exempt
+                            v, t = 0, amt
+                    else:
+                        v, t = 0, amt
+                    
+                    processed.append({
+                        "UserPIN": kra_pin,
+                        "Date": str(row['Date (YYYY-MM-DD)']).split(" ")[0],
+                        "CounterpartyPIN": str(row['CounterpartyPIN']),
+                        "Total": int(round(t)),
+                        "VAT": int(round(v)),
+                        "eTIMS": "Yes", 
+                        "Category": "Sales" if is_sale else "Purchases"
+                    })
+                return pd.DataFrame(processed)
 
-            queue = pd.concat([process(up_s, True), process(up_p, False)], ignore_index=True)
+            # Combine processed data
+            queue_df = pd.concat([process_bulk(up_sales, True), process_bulk(up_purch, False)], ignore_index=True)
             
-            if not queue.empty:
-                st.write("Review & Edit Staged Transactions:")
-                # Use Data Editor for "Delete/Edit" functionality
-                final_df = st.data_editor(queue, use_container_width=True, hide_index=True, num_rows="dynamic")
+            if not queue_df.empty:
+                status_text = "VAT Calculations: ENABLED" if enable_vat_calc else "VAT Calculations: DISABLED (All VAT set to 0)"
+                st.caption(f"✨ {status_text}")
                 
-                if st.button("🚀 Confirm & Upload All"):
-                    for s in ["Sales", "Purchases"]:
-                        sub = final_df[final_df['Category'] == s].drop(columns=['Category'])
-                        if not sub.empty:
-                            ex = conn.read(worksheet=s, ttl=0)
-                            conn.update(worksheet=s, data=pd.concat([ex, sub], ignore_index=True))
-                    st.success("Cloud Sync Complete!")
-            else: st.warning("File is empty.")
-        except Exception as e: st.error(f"Error: {e}")
-    else: st.info("Upload XLSX in sidebar to stage transactions.")
-
-with tab3:
-    # Monthly Report Logic (Same as before)
-    if not kra_pin: st.info("Enter PIN.")
+                # Using Data Editor so you can delete/edit rows before pushing
+                edited_df = st.data_editor(
+                    queue_df, 
+                    use_container_width=True, 
+                    hide_index=True,
+                    num_rows="dynamic",
+                    column_config={
+                        "Total": st.column_config.NumberColumn(format="KES %,d"),
+                        "VAT": st.column_config.NumberColumn(format="KES %,d"),
+                        "Category": st.column_config.SelectboxColumn(options=["Sales", "Purchases"])
+                    }
+                )
+                
+                c_btn1, c_btn2 = st.columns(2)
+                if c_btn1.button("🚀 Push Queue to Cloud"):
+                    with st.spinner("Uploading bulk data..."):
+                        for s_type in ["Sales", "Purchases"]:
+                            sub_df = edited_df[edited_df['Category'] == s_type].drop(columns=['Category'])
+                            if not sub_df.empty:
+                                existing = conn.read(worksheet=s_type, ttl=0)
+                                conn.update(worksheet=s_type, data=pd.concat([existing, sub_df], ignore_index=True))
+                        st.success("✅ Bulk Upload Complete!")
+                        st.balloons()
+                
+                if c_btn2.button("🗑️ Clear Queue"):
+                    st.rerun()
+            else:
+                st.warning("The uploaded file appears to be empty.")
+        except Exception as e:
+            st.error(f"Excel Error: {e}")
     else:
-        # Period Selectors
-        c1, c2 = st.columns(2)
-        with c1: month = st.selectbox("Month", ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"], index=date.today().month-1)
-        with c2: year = st.selectbox("Year", [2025, 2026])
-        
-        if st.button("Generate Report"):
-            # Filtering and Metrics...
-            st.write(f"Displaying data for {month} {year}...")
-            # (Insert your metric and table logic here)
+        st.info("Upload an Excel file in the sidebar to see the queue here.")
+
+# --- TAB 3: MONTHLY REPORT (Your existing working code) ---
+with tab3:
+    st.subheader(f"VAT Summary: {kra_pin}")
+    if not kra_pin:
+        st.info("👋 Enter KRA PIN in sidebar to start.")
+    else:
+        c_month, c_year = st.columns(2)
+        list_months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        with c_month:
+            sel_month_name = st.selectbox("Month", list_months, index=date.today().month - 1)
+            sel_month_num = list_months.index(sel_month_name) + 1
+        with c_year:
+            sel_year = st.selectbox("Year", range(2024, date.today().year + 2), index=date.today().year - 2024)
+
+        filter_str = f"{sel_year}-{sel_month_num:02d}"
+
+        if st.button(f"Generate Report for {sel_month_name} {sel_year}"):
+            try:
+                s_df = conn.read(worksheet="Sales", ttl=0)
+                p_df = conn.read(worksheet="Purchases", ttl=0)
+                u_s = s_df[(s_df['UserPIN'] == kra_pin) & (s_df['Date'].str.startswith(filter_str))] if s_df is not None else pd.DataFrame()
+                u_p = p_df[(p_df['UserPIN'] == kra_pin) & (p_df['Date'].str.startswith(filter_str))] if p_df is not None else pd.DataFrame()
+
+                o_v = u_s['VAT'].astype(float).sum() if not u_s.empty else 0
+                i_v = u_p['VAT'].astype(float).sum() if not u_p.empty else 0
+                n_v = o_v - i_v
+
+                m1, m2, m3 = st.columns(3)
+                m1.metric("Output VAT", f"KES {o_v:,.0f}")
+                m2.metric("Input VAT", f"KES {i_v:,.0f}")
+                m3.metric("Net VAT", f"KES {abs(n_v):,.0f}", delta="Due to KRA" if n_v > 0 else "Credit")
+
+                st.divider()
+                st.write("**Recent Records**")            
+                col_l, col_r = st.columns(2)
+                curr_cfg = {"Total": st.column_config.NumberColumn(format="KES %,d"), "VAT": st.column_config.NumberColumn(format="KES %,d")}
+                with col_l:
+                    st.write("**Sales Log**")
+                    st.dataframe(u_s[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
+                with col_r:
+                    st.write("**Purchases Log**")
+                    st.dataframe(u_p[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
+            except Exception as e:
+                st.error(f"Error: {e}")
