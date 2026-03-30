@@ -50,7 +50,7 @@ def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
         pdf.set_fill_color(31, 119, 180) # Blue header
         pdf.set_text_color(255, 255, 255)
         pdf.set_font("Arial", 'B', 9)
-        pdf.cell(35, 8, "Date", 1, 0, 'C', True)
+        pdf.cell(40, 8, "Date", 1, 0, 'C', True)
         pdf.cell(60, 8, "Counterparty PIN", 1, 0, 'C', True)
         pdf.cell(45, 8, "Total (KES)", 1, 0, 'C', True)
         pdf.cell(45, 8, "VAT (KES)", 1, 1, 'C', True)
@@ -61,7 +61,7 @@ def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
             pdf.cell(185, 8, "No records found.", 1, 1, 'C')
         else:
             for _, row in df.iterrows():
-                pdf.cell(35, 8, str(row['Date']), 1, 0, 'C')
+                pdf.cell(40, 8, str(row['Date']), 1, 0, 'C')
                 pdf.cell(60, 8, str(row['CounterpartyPIN']), 1, 0, 'C')
                 pdf.cell(45, 8, f"{row['Total']:,.2f}", 1, 0, 'C')
                 pdf.cell(45, 8, f"{row['VAT']:,.2f}", 1, 1, 'C')
