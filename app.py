@@ -8,36 +8,72 @@ import io
 
 from fpdf import FPDF
 
-def create_pdf(data, pin, period):
+def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
     pdf = FPDF()
+    pdf.set_auto_page_break(auto=True, margin=15)
     pdf.add_page()
     
-    # Header
+    # --- HEADER ---
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="VatHustle Kenya - Monthly Summary", ln=True, align='C')
-    
-    # Business Info
-    pdf.set_font("Arial", size=12)
-    pdf.cell(200, 10, txt=f"Business PIN: {pin}", ln=True, align='L')
-    pdf.cell(200, 10, txt=f"Reporting Period: {period}", ln=True, align='L')
-    pdf.ln(10)
-    
-    # Table Header
-    pdf.set_fill_color(200, 220, 255)
-    pdf.set_font("Arial", 'B', 10)
-    pdf.cell(40, 10, "Date", 1, 0, 'C', True)
-    pdf.cell(60, 10, "Counterparty", 1, 0, 'C', True)
-    pdf.cell(45, 10, "Amount (KES)", 1, 0, 'C', True)
-    pdf.cell(45, 10, "VAT (KES)", 1, 1, 'C', True)
-    
-    # Table Data
+    pdf.cell(200, 10, txt="VatHustle Kenya - Tax Reconciliation", ln=True, align='C')
     pdf.set_font("Arial", size=10)
-    for index, row in data.iterrows():
-        pdf.cell(40, 10, str(row['Date']), 1)
-        pdf.cell(60, 10, str(row['CounterpartyPIN']), 1)
-        pdf.cell(45, 10, f"{row['Total']:,.2f}", 1)
-        pdf.cell(45, 10, f"{row['VAT']:,.2f}", 1, 1)
+    pdf.cell(200, 10, txt=f"Generated on: {datetime.now().strftime('%d %b %Y %H:%M')}", ln=True, align='C')
+    pdf.ln(5)
+
+    # --- BUSINESS & SUMMARY SECTION ---
+    pdf.set_fill_color(240, 240, 240)
+    pdf.set_font("Arial", 'B', 12)
+    pdf.cell(0, 10, f" Business PIN: {pin} | Period: {period}", 1, 1, 'L', True)
+    pdf.ln(5)
+
+    # VAT Metrics Table
+    pdf.set_font("Arial", 'B', 11)
+    pdf.cell(63, 10, "Output VAT (Sales)", 1, 0, 'C')
+    pdf.cell(63, 10, "Input VAT (Purchases)", 1, 0, 'C')
+    pdf.cell(64, 10, "Net VAT Payable/Credit", 1, 1, 'C')
+    
+    pdf.set_font("Arial", size=11)
+    pdf.cell(63, 10, f"KES {o_v:,.2f}", 1, 0, 'C')
+    pdf.cell(63, 10, f"KES {i_v:,.2f}", 1, 0, 'C')
+    pdf.set_font("Arial", 'B', 11)
+    # Highlight Net VAT
+    pdf.cell(64, 10, f"KES {n_v:,.2f}", 1, 1, 'C')
+    pdf.ln(10)
+
+    # --- HELPER TO BUILD TABLES ---
+    def build_table(header_text, df):
+        pdf.set_font("Arial", 'B', 12)
+        pdf.cell(0, 10, header_text, 0, 1, 'L')
         
+        pdf.set_fill_color(31, 119, 180) # Blue header
+        pdf.set_text_color(255, 255, 255)
+        pdf.set_font("Arial", 'B', 9)
+        pdf.cell(35, 8, "Date", 1, 0, 'C', True)
+        pdf.cell(60, 8, "Counterparty PIN", 1, 0, 'C', True)
+        pdf.cell(45, 8, "Total (KES)", 1, 0, 'C', True)
+        pdf.cell(45, 8, "VAT (KES)", 1, 1, 'C', True)
+        
+        pdf.set_text_color(0, 0, 0)
+        pdf.set_font("Arial", size=9)
+        if df.empty:
+            pdf.cell(185, 8, "No records found.", 1, 1, 'C')
+        else:
+            for _, row in df.iterrows():
+                pdf.cell(35, 8, str(row['Date']), 1)
+                pdf.cell(60, 8, str(row['CounterpartyPIN']), 1)
+                pdf.cell(45, 8, f"{row['Total']:,.2f}", 1, 0, 'R')
+                pdf.cell(45, 8, f"{row['VAT']:,.2f}", 1, 1, 'R')
+        pdf.ln(5)
+
+    # Build both tables
+    build_table("1. Sales Transactions (Output)", s_data)
+    build_table("2. Purchase Transactions (Input)", p_data)
+
+    # Footer
+    pdf.set_y(-25)
+    pdf.set_font("Arial", 'I', 8)
+    pdf.cell(0, 10, "This is a computer-generated summary by VatHustle. Verify all figures with KRA eTIMS before filing.", 0, 0, 'C')
+
     return pdf.output(dest='S').encode('latin-1')
 
 # --- GLOBAL CONFIGURATION ---
@@ -316,10 +352,17 @@ with tab3:
 
                 # PDF DOWNLOAD SECTION
                 st.write("---")
-                if not u_s.empty:
-                    pdf_data = create_pdf(u_s, kra_pin, f"{sel_month_name} {sel_year}")
-                    st.download_button(label="📥 Download Sales Report (PDF)",
-                data=pdf_data, file_name=f"VAT_Sales_{sel_month_name}_{sel_year}.pdf", mime="application/pdf", use_container_width=True)
+                if st.button("📄 Prepare Final PDF Report", use_container_width=True):
+                    try:
+                # Generate the PDF data using both u_s (Sales) and u_p (Purchases)
+                        pdf_bytes = create_full_vat_report(u_s, u_p, kra_pin, f"{sel_month_name} {sel_year}", o_v, i_v, n_v)
+        
+        # Provide the download button after generation
+                        st.download_button(label="📥 Download Complete Report (PDF)", data=pdf_bytes, file_name=f"VAT_Report_{sel_month_name}_{sel_year}.pdf",
+            mime="application/pdf", use_container_width=True)
+                        st.success("PDF generated successfully!")
+                    except Exception as e:
+                        st.error(f"PDF Error: {e}")
                
                 st.divider()
                 st.write("**Recent Records**")            
