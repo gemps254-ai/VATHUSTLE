@@ -182,15 +182,14 @@ with tab2:
         "Total": st.column_config.NumberColumn(format="KES %d"),
         "VAT": st.column_config.NumberColumn(format="KES %d")
     }
-))
-                
+)                
                 with col_right:
                     st.write("**Purchases Log**")
                     st.dataframe(u_purch[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), use_container_width=True, hide_index=True, column_config={
         "Total": st.column_config.NumberColumn(format="KES %d"),
         "VAT": st.column_config.NumberColumn(format="KES %d")
     }
-))
+)
                 
             except Exception as e:
                 st.error(f"Syntax or Connection Error: {e}")
