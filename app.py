@@ -10,7 +10,7 @@ CURRENT_VAT_RATE = 0.16
 VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE 
 
 # 1. Setup Page & Styling
-st.set_page_config(page_title="VAT Tracker Kenya", layout="wide", page_icon="GEMPS")
+st.set_page_config(page_title="VAT Tracker Kenya", layout="wide", page_icon="🇰🇪")
 
 st.markdown("""
     <style>
