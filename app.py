@@ -6,18 +6,19 @@ import re
 
 # --- GLOBAL CONFIGURATION (KRA Policy Changes) ---
 # Change these values here to update the entire app instantly
-CURRENT_VAT_RATE = 0.16  # 16% Standard Rate
-VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE # 1.16
+CURRENT_VAT_RATE = 0.16  # Current Standard Rate
+VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE 
 
 # 1. Setup Page & Custom Styling
 st.set_page_config(page_title="VAT Tracker Kenya", layout="wide", page_icon="🇰🇪")
 
-# CSS to hide the +/- increment buttons and style containers
+# CSS to hide the +/- increment buttons and style metrics
 st.markdown("""
     <style>
     input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
     input[type=number] { -moz-appearance: textfield; }
-    .stMetric { background-color: #f0f2f6; padding: 15px; border-radius: 10px; border: 1px solid #d1d4dc; }
+    [data-testid="stMetricValue"] { font-size: 1.8rem; }
+    .stMetric { background-color: #f8f9fa; padding: 20px; border-radius: 8px; border: 1px solid #e9ecef; }
     </style>
 """, unsafe_allow_html=True)
 
@@ -36,17 +37,17 @@ with st.sidebar:
     
     if kra_pin:
         if not is_valid_pin:
-            st.warning("⚠️ PIN usually has 11 characters. Check if a digit is missing.")
+            st.warning("⚠️ PIN usually has 11 characters. Check for missing digits.")
         else:
             st.success("✅ PIN Format Verified")
     
     enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
     st.divider()
-    st.info(f"Current VAT Rate: {CURRENT_VAT_RATE*100}%")
+    st.info(f"Current VAT Rate: {int(CURRENT_VAT_RATE*100)}%")
     
     # Deadline Countdown
     today = date.today()
-    deadline = date(today.year, today.month, 20) if today.day <= 20 else date(today.year, today.month + 1, 20)
+    deadline = date(today.year, today.month, 20) if today.today().day <= 20 else date(today.year, today.month + 1, 20)
     st.metric("Days to Filing Deadline", f"{(deadline - today).days} Days")
 
 # 4. Main Interface
@@ -91,8 +92,8 @@ with tab1:
                         "UserPIN": kra_pin, 
                         "Date": str(t_date), 
                         "CounterpartyPIN": other_pin, 
-                        "Total": round(total), 
-                        "VAT": round(vat), 
+                        "Total": int(round(total)), 
+                        "VAT": int(round(vat)), 
                         "eTIMS": "Yes" if is_etims else "No"
                     }])
                     conn.update(worksheet=sheet, data=pd.concat([existing, new_row], ignore_index=True))
@@ -102,54 +103,31 @@ with tab1:
                     st.error(f"❌ Connection Error: {e}")
 
 with tab2:
-    st.subheader(f"Summary for KRA PIN: {kra_pin}")
+    st.subheader(f"Financial Summary: {kra_pin}")
     if not kra_pin:
         st.info("Enter your PIN in the sidebar to view reports.")
     else:
-        # --- NEW PERIOD FILTER ---
-        col_select, col_refresh = st.columns([3, 1])
-        with col_select:
-            # Users select a month and year to view
-            report_date = st.date_input("Select Month to Review", value=date.today())
-            filter_month = report_date.strftime("%Y-%m") # e.g. "2024-03"
+        # --- REFINED MONTH & YEAR SELECTOR ---
+        st.write("### Filter Reporting Period")
+        c_month, c_year = st.columns(2)
         
-        if st.button("Generate Report for " + report_date.strftime("%B %Y")):
+        months = ["January", "February", "March", "April", "May", "June", 
+                  "July", "August", "September", "October", "November", "December"]
+        
+        with c_month:
+            sel_month_name = st.selectbox("Select Month", months, index=date.today().month - 1)
+            sel_month_num = months.index(sel_month_name) + 1
+            
+        with c_year:
+            # Range from 2024 to current year + 1
+            sel_year = st.selectbox("Select Year", range(2024, date.today().year + 2), index=range(2024, date.today().year + 2).index(date.today().year))
+
+        filter_period = f"{sel_year}-{sel_month_num:02d}" # Formats to "2026-03"
+
+        if st.button(f"Generate Report for {sel_month_name} {sel_year}"):
             try:
                 # Fetch Data
                 sales_df = conn.read(worksheet="Sales", ttl=0)
                 purch_df = conn.read(worksheet="Purchases", ttl=0)
 
-                # Filter by PIN and the start of the Date string (Year-Month)
-                u_sales = sales_df[(sales_df['UserPIN'] == kra_pin) & (sales_df['Date'].str.startswith(filter_month))]
-                u_purch = purch_df[(purch_df['UserPIN'] == kra_pin) & (purch_df['Date'].str.startswith(filter_month))]
-
-                # Summary Calculations
-                out_vat = u_sales['VAT'].sum() if not u_sales.empty else 0
-                in_vat = u_purch['VAT'].sum() if not u_purch.empty else 0
-                net_vat = out_vat - in_vat
-
-                # Dashboard Layout
-                c1, c2, c3 = st.columns(3)
-                c1.metric("Output VAT (Sales)", f"KES {out_vat:,.0f}")
-                c2.metric("Input VAT (Purchases)", f"KES {in_vat:,.0f}")
-                
-                status = "PAYABLE" if net_vat > 0 else "CREDIT"
-                c3.metric(f"VAT {status}", f"KES {abs(net_vat):,.0f}", 
-                         delta="Payable" if net_vat > 0 else "Refundable", 
-                         delta_color="inverse" if net_vat > 0 else "normal")
-
-                st.divider()
-                
-                # Visual Chart
-                chart_data = pd.DataFrame({"Amount": [out_vat, in_vat]}, index=["Sales VAT", "Purchase VAT"])
-                st.bar_chart(chart_data)
-
-                # Data Tables
-                st.write(f"### Detailed Transactions for {report_date.strftime('%B %Y')}")
-                st.write("**Sales**")
-                st.dataframe(u_sales, use_container_width=True)
-                st.write("**Purchases**")
-                st.dataframe(u_purch, use_container_width=True)
-                
-            except Exception as e:
-                st.error(f"Could not load report: {e}")
+                # Filter by PIN
