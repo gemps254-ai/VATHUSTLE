@@ -110,6 +110,10 @@ with tab3: # Re-mapping Tab indices for clarity
 
 with tab2:
     st.subheader("📋 Bulk Upload Queue")
+    if not kra_pin:
+        st.info("👋 Enter KRA PIN in sidebar to start.")
+    else:    
+    
     if uploaded_file and kra_pin:
         try:
             # Read both sheets
@@ -177,7 +181,7 @@ with tab2:
 with tab3:
     st.subheader(f"VAT Summary: {kra_pin}")
     if not kra_pin:
-        st.info("Enter PIN in sidebar.")
+        st.info("👋 Enter KRA PIN in sidebar to start.")
     else:
         c_month, c_year = st.columns(2)
         list_months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
