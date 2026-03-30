@@ -25,7 +25,7 @@ def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
     # --- BUSINESS & SUMMARY SECTION ---
     pdf.set_fill_color(240, 240, 240)
     pdf.set_font("Arial", 'B', 12)
-    pdf.cell(0, 10, f" KRA PIN: {pin} | Period: {period}", 1, 1, 'L', True, align='C')
+    pdf.cell(0, 10, f" KRA PIN: {pin} | Period: {period}", 1, 1, 'C', True)
     pdf.ln(10)
 
     # VAT Metrics Table
