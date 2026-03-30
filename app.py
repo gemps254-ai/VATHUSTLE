@@ -58,7 +58,7 @@ def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
         pdf.set_text_color(0, 0, 0)
         pdf.set_font("Arial", size=9)
         if df.empty:
-            pdf.cell(185, 8, "No records found.", 1, 1, 'C')
+            pdf.cell(190, 8, "No records found.", 1, 1, 'C')
         else:
             for _, row in df.iterrows():
                 pdf.cell(40, 8, str(row['Date']), 1, 0, 'C')
