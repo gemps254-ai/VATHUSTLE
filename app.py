@@ -17,7 +17,7 @@ def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
     # --- HEADER ---
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="🏢 GEMPS 🇰🇪 - VAT Reconciliation Report", ln=True, align='C')
+    pdf.cell(200, 10, txt="GEMPS Kenya - VAT Reconciliation Report", ln=True, align='C')
     pdf.set_font("Arial", size=10)
     pdf.cell(200, 10, txt=f"Generated on: {now_kenya.strftime('%d %b %Y %H:%M')}", ln=True, align='C')
     pdf.ln(5)
@@ -74,7 +74,7 @@ def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
     # Footer
     pdf.set_y(-25)
     pdf.set_font("Arial", 'I', 8)
-    pdf.cell(0, 10, "This is a computer-generated summary by 🏢 GEMPS 🇰🇪. Verify all figures with KRA eTIMS before filing.", 0, 0, 'C')
+    pdf.cell(0, 10, "This is a computer-generated summary by GEMPS 🇰🇪. Verify all figures with KRA eTIMS before filing.", 0, 0, 'C')
 
     return pdf.output(dest='S').encode('latin-1')
 
@@ -83,7 +83,7 @@ CURRENT_VAT_RATE = 0.16
 VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE 
 
 # 1. Setup Page & Styling
-st.set_page_config(page_title="VAT Tracker Kenya", layout="wide", page_icon="🇰🇪")
+st.set_page_config(page_title="GEMPS 🇰🇪 VAT Tracker", layout="wide", page_icon="🇰🇪")
 
 st.markdown("""
     <style>
