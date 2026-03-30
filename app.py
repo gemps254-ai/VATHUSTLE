@@ -79,15 +79,21 @@ with tab1:
                     sheet = "Sales" if "Sales" in t_type else "Purchases"
                     existing = conn.read(worksheet=sheet, ttl=0)
                     new_row = pd.DataFrame([{"UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, "Total": round(total), "VAT": round(vat), "eTIMS": "Yes" if is_etims else "No"}])
+                   
+                    if existing_data is not None and not existing_data.empty:
+                        updated_df = pd.concat([existing_data, new_row], ignore_index=True)
+                    else:
+                        updated_df = new_row 
+                    
                     conn.update(worksheet=sheet, data=pd.concat([existing, new_row], ignore_index=True))
                     st.success("Saved!")
-                    st.balloons()
+                    
                 except Exception as e:
                     st.error(f"Error: {e}")
 
 with tab2:
     # Requirement 3: Reforming the Monthly Report
-    st.subheader(f"Financial Summary for PIN: {kra_pin}")
+    st.subheader(f"Summary for KRA PIN: {kra_pin}")
     if not kra_pin:
         st.info("Enter your PIN to view your reports.")
     else:
