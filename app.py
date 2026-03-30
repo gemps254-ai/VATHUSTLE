@@ -50,7 +50,7 @@ with st.sidebar:
     st.info(f"Current KRA VAT Rate: {int(CURRENT_VAT_RATE*100)}%")
     
     st.divider()
-    st.subheader("📤 Bulk Upload")
+    st.subheader("Bulk Upload")
     
     # Feature 1: Download Template
     template_data = generate_excel_template()
@@ -62,7 +62,7 @@ with st.sidebar:
     )
     
     # Feature 2: Upload File
-    uploaded_file = st.file_uploader("Upload filled template", type=["xlsx"])
+    uploaded_file = st.file_uploader("📤 Upload filled template", type=["xlsx"])
     
     st.divider()
     today = date.today()
