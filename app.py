@@ -275,7 +275,7 @@ with tab3:
                         st.info("No sales records to display.")
 
                 with col_r:
-                        st.write("**Purchases Log**")
+                    st.write("**Purchases Log**")
         # Check if u_p is not empty AND has the required columns
                     if not u_p.empty and set(['Date', 'CounterpartyPIN', 'Total', 'VAT']).issubset(u_p.columns):
                         st.dataframe(u_p[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
