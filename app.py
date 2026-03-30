@@ -50,7 +50,7 @@ with st.sidebar:
     st.info(f"Current KRA VAT Rate: {int(CURRENT_VAT_RATE*100)}%")
     
     st.divider()
-    st.header("📤 Bulk Upload")
+    st.sub header("📤 Bulk Upload")
     
     # Feature 1: Download Template
     template_data = generate_excel_template()
