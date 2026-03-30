@@ -44,20 +44,32 @@ with tab1:
     else:
         can_save = True
 
-    if st.button("Save to Cloud") and can_save:
-        # Create a tiny table of this one entry
-        new_data = pd.DataFrame([{
-            "Date": t_date, "Type": t_type, "PIN": other_pin, 
-            "Total": amount, "VAT": round(vat_amount, 2), "eTIMS": is_etims
-        }])
+# --- UPDATED SAVE LOGIC ---
+if st.button("Save to Cloud"):
+    try:
+        # 1. Pull existing data to see what's already there
+        # We specify the worksheet name (make sure it matches your Google Sheet tab!)
+        existing_data = conn.read(worksheet="Sales", ttl=0) 
         
-        # In a full app, we would use conn.create() here. 
-        # For now, we simulate the success:
-        st.success(f"Saved! Sh {vat_amount:,.2f} recorded for {t_type}")
+        # 2. Create the new row as a small table
+        new_row = pd.DataFrame([{
+            "Date": str(t_date),
+            "Type": t_type,
+            "PIN": other_pin,
+            "Total": amount,
+            "VAT": round(vat_amount, 2),
+            "eTIMS": "Yes" if is_etims else "No"
+        }])
 
-with tab2:
-    st.subheader("Your VAT Filing Helper")
-    st.write("Compare these totals with your iTax pre-filled return:")
-    # Here the app would calculate the sum of all VAT in your Google Sheet
-    st.metric(label="VAT Payable to KRA", value="Sh 4,250.00", delta="Payable")
-    st.warning("Ensure you have all physical/digital receipts before filing.")
+        # 3. Combine the old data with the new row
+        updated_df = pd.concat([existing_data, new_row], ignore_index=True)
+
+        # 4. Push the whole thing back to Google Sheets
+        conn.update(worksheet="Sales", data=updated_df)
+        
+        st.success("✅ Transaction synced successfully to Google Sheets!")
+        st.balloons()
+        
+    except Exception as e:
+        st.error(f"❌ Error saving to Google Sheets: {e}")
+        st.info("Check your 'Manage App > Logs' for the full error details.")
