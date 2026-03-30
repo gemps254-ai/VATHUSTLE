@@ -232,7 +232,7 @@ with tab3:
                 s_df = conn.read(worksheet="Sales", ttl=0)
                 p_df = conn.read(worksheet="Purchases", ttl=0)
 # 1. Ensure DataFrames aren't None and handle empty sheets
-            if s_df is None or s_df.empty:
+                if s_df is None or s_df.empty:
                 u_s = pd.DataFrame()
             else:
             # FIX: Convert Date to string before using .str accessor
