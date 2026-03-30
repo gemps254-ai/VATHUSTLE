@@ -17,7 +17,7 @@ def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
     # --- HEADER ---
     pdf.ln(10)
     pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="GEMPS Kenya - VAT Reconciliation Report", ln=True, align='C')
+    pdf.cell(200, 10, txt="GEMPS KE VAT Reconciliation Report", ln=True, align='C')
     pdf.set_font("Arial", size=10)
     pdf.cell(200, 10, txt=f"Generated on: {now_kenya.strftime('%d %b %Y %H:%M')}", ln=True, align='C')
     pdf.ln(5)
@@ -94,7 +94,7 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-st.title("🇰🇪 VAT Tracker")
+st.title("GEMPS 🇰🇪 VAT Tracker")
 
 # 2. Connection
 conn = st.connection("gsheets", type=GSheetsConnection)
