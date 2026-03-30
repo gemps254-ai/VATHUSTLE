@@ -4,6 +4,7 @@ from streamlit_gsheets import GSheetsConnection
 import pandas as pd
 from datetime import datetime, date
 import re
+import time
 import io
 
 from fpdf import FPDF
