@@ -45,8 +45,8 @@ with tab1:
         can_save = True
 
 # --- UPDATED SAVE LOGIC ---
-if st.button("Save to Cloud"):
-    try:
+    if st.button("Save to Cloud"):
+        try:
         # 1. Pull existing data to see what's already there
         # We specify the worksheet name (make sure it matches your Google Sheet tab!)
         existing_data = conn.read(worksheet="Sales", ttl=0) 
