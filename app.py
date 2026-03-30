@@ -410,5 +410,3 @@ with tab3:
                     st.dataframe(rd["u_p"][["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=cfg)
                 else:
                     st.info("No purchase records to display for this period.")
-except Exception as e:
-                st.error(f"Error generating report: {e}")
