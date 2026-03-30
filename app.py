@@ -191,7 +191,7 @@ with tab2:
                     }
                 )
                 
-                c_btn1, c_btn2 = st.columns(2)
+                c_btn1 = st.columns(1)
                 if c_btn1.button("🚀 Push Queue to Cloud"):
                     with st.spinner("Uploading bulk data..."):
                         for s_type in ["Sales", "Purchases"]:
@@ -201,9 +201,7 @@ with tab2:
                                 conn.update(worksheet=s_type, data=pd.concat([existing, sub_df], ignore_index=True))
                         st.success("✅ Bulk Upload Complete!")
                         st.balloons()
-                
-                if c_btn2.button("🗑️ Clear Queue"):
-                    st.rerun()
+            
             else:
                 st.warning("The uploaded file appears to be empty.")
         except Exception as e:
