@@ -40,7 +40,6 @@ def create_pdf(data, pin, period):
         
     return pdf.output(dest='S').encode('latin-1')
 
-
 # --- GLOBAL CONFIGURATION ---
 CURRENT_VAT_RATE = 0.16  
 VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE 
@@ -315,6 +314,13 @@ with tab3:
                 m2.metric("Input VAT", f"KES {i_v:,.0f}")
                 m3.metric("Net VAT", f"KES {abs(n_v):,.0f}", delta="Due to KRA" if n_v > 0 else "Credit")
 
+                # PDF DOWNLOAD SECTION
+                st.write("---")
+                if not u_s.empty:
+                    pdf_data = create_pdf(u_s, kra_pin, f"{sel_month_name} {sel_year}")
+                    st.download_button(label="📥 Download Sales Report (PDF)",
+                data=pdf_data, file_name=f"VAT_Sales_{sel_month_name}_{sel_year}.pdf", mime="application/pdf", use_container_width=True)
+               
                 st.divider()
                 st.write("**Recent Records**")            
                 col_l, col_r = st.columns(2)
