@@ -345,75 +345,71 @@ with tab3:
                     p_df['Date'] = p_df['Date'].astype(str)
                     u_p = p_df[(p_df['UserPIN'] == kra_pin) & (p_df['Date'].str.startswith(filter_str))]
 
-                # 4. Calculation Logic
-                if u_s.empty and u_p.empty:
+                # 4. Calculation Logic & Safety Check
+                if (s_df is None or s_df.empty) and (p_df is None or p_df.empty):
                     st.warning(f"No transactions found for {sel_month_name} {sel_year}.")
+                    st.session_state.report_data = None # Clear previous report if new search is empty
                 else:
-                    o_v = u_s['VAT'].astype(float).sum() if not u_s.empty else 0
-                    i_v = u_p['VAT'].astype(float).sum() if not u_p.empty else 0
+                    o_v = u_s['VAT'].astype(float).sum() if not u_s.empty else 0.0
+                    i_v = u_p['VAT'].astype(float).sum() if not u_p.empty else 0.0
                     n_v = o_v - i_v
 
-                # 5. Display Metrics
-                m1, m2, m3 = st.columns(3)
-                m1.metric("Output VAT", f"KES {o_v:,.0f}")
-                m2.metric("Input VAT", f"KES {i_v:,.0f}")
-                m3.metric("Net VAT", f"KES {abs(n_v):,.0f}", delta="Due to KRA" if n_v > 0 else "Credit")
+                    # Save to session state ONLY if there is data to show
+                    st.session_state.report_data = {
+                        "u_s": u_s, 
+                        "u_p": u_p, 
+                        "o_v": o_v, 
+                        "i_v": i_v, 
+                        "n_v": n_v, 
+                        "period": f"{sel_month_name} {sel_year}"
+                    }
 
-                       # --- PDF DOWNLOAD SECTION ---
-                st.write("---")
-                
-                # 1. Initialize the session state key if it doesn't exist
-                if "pdf_report_bytes" not in st.session_state:
-                    st.session_state.pdf_report_bytes = None
-                
-                # 2. The 'Prepare' button generates the data and saves it to session_state
-                if st.button("📄 Prepare Final PDF Report", use_container_width=True):
-                    try:
-                        with st.spinner("Generating professional PDF..."):
-                            pdf_bytes = create_full_vat_report(
-                                u_s, u_p, 
-                                kra_pin, 
-                                f"{sel_month_name} {sel_year}", 
-                                o_v, i_v, n_v
-                            )
-                            st.session_state.pdf_report_bytes = pdf_bytes
-                            st.success("✅ PDF ready for download!")
-                    except Exception as e:
-                        st.error(f"PDF Error: {e}")
-                
-                # 3. Only show the Download button if the PDF exists in session_state
-                if st.session_state.pdf_report_bytes is not None:
-                    st.download_button(
-                        label="📥 Download Complete Report (PDF)", 
-                        data=st.session_state.pdf_report_bytes, 
-                        file_name=f"VAT_Report_{sel_month_name}_{sel_year}.pdf",
-                        mime="application/pdf", 
-                        use_container_width=True
-                    )
-                    
-                    # Optional: Add a button to reset/clear the generated PDF
-                    if st.button("🔄 Clear/Reset Report"):
-                        st.session_state.pdf_report_bytes = None
-                        st.rerun()
-               
-                st.divider()
-                st.write("**Recent Records**")            
-                col_l, col_r = st.columns(2)
-                curr_cfg = {"Total": st.column_config.NumberColumn(format="KES %,d"), "VAT": st.column_config.NumberColumn(format="KES %,d")}
-                
-                with col_l:
-                    st.write("**Sales Log**")
-                    if not u_s.empty and set(['Date', 'CounterpartyPIN', 'Total', 'VAT']).issubset(u_s.columns):
-                        st.dataframe(u_s[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
-                    else:
-                        st.info("No sales records to display.")
+            except Exception as e:
+                st.error(f"Error generating report: {e}")
 
-                with col_r:
-                    st.write("**Purchases Log**")
-                    if not u_p.empty and set(['Date', 'CounterpartyPIN', 'Total', 'VAT']).issubset(u_p.columns):
-                        st.dataframe(u_p[["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=curr_cfg)
-                    else:
-                        st.info("No purchase records to display.")
+        # --- DISPLAY BLOCK (Handles Empty States Safely) ---
+        if st.session_state.get("report_data"):
+            rd = st.session_state.report_data
+            
+            # Show Metrics
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Output VAT", f"KES {rd['o_v']:,.0f}")
+            m2.metric("Input VAT", f"KES {rd['i_v']:,.0f}")
+            m3.metric("Net VAT", f"KES {abs(rd['n_v']):,.0f}", delta="Due to KRA" if rd['n_v'] > 0 else "Credit")
+
+            st.write("---")
+            # PDF Buttons
+            if st.button("📄 Prepare Final PDF Report", use_container_width=True):
+                st.session_state.pdf_report_bytes = create_full_vat_report(
+                    rd["u_s"], rd["u_p"], kra_pin, rd["period"], rd["o_v"], rd["i_v"], rd["n_v"]
+                )
+
+            if st.session_state.get("pdf_report_bytes"):
+                st.download_button(
+                    label="📥 Download Complete Report (PDF)",
+                    data=st.session_state.pdf_report_bytes,
+                    file_name=f"VAT_Report_{rd['period']}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+
+            st.divider()
+            col_l, col_r = st.columns(2)
+            cfg = {"Total": st.column_config.NumberColumn(format="KES %,d"), "VAT": st.column_config.NumberColumn(format="KES %,d")}
+            
+            with col_l:
+                st.write("**Sales Log**")
+                if not rd["u_s"].empty:
+                    st.dataframe(rd["u_s"][["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=cfg)
+                else:
+                    st.info("No sales records to display for this period.")
+
+            with col_r:
+                st.write("**Purchases Log**")
+                if not rd["u_p"].empty:
+                    st.dataframe(rd["u_p"][["Date", "CounterpartyPIN", "Total", "VAT"]].tail(10), hide_index=True, column_config=cfg)
+                else:
+                    st.info("No purchase records to display for this period.")
                         
             except Exception as e:
                 st.error(f"Error generating report: {e}")
