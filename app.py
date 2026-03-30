@@ -141,7 +141,7 @@ with st.sidebar:
     # 3. Calculate days remaining
     days_remaining = (deadline - today).days
     
-    st.metric("Days to Filing Deadline", f"{days_remaining} Days")
+    st.metric(f"{days_remaining} Days","Remaining")
     st.caption(f"Current Date & Time: {now_kenya.strftime('%d %b %Y %H:%M')}")
             
     st.divider()
