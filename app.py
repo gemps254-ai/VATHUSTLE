@@ -307,6 +307,10 @@ with tab1:
                 VAT: {vat_val:.2f}
                 Total: {total_to_save:.2f}
                 """)
+
+                # Auto-disappear after 2 seconds
+                time.sleep(4)
+                msg.empty()
             
             else:
                 vat_val = 0
