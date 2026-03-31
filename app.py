@@ -308,9 +308,10 @@ with tab1:
                         st.success(f"✅ Saved to {s_name}!")
                         st.balloons()
                         
-                        # Cleanup scanner state
-                        for key in ['scanned_date', 'scanned_total', 'scanned_pin']:
-                            if key in st.session_state: del st.session_state[key]
+                        # Reset scanner state instead of deleting
+                        st.session_state.scanned_date = date.today()
+                        st.session_state.scanned_total = 0.0
+                        st.session_state.scanned_pin = ""
                         
                         st.rerun() 
                         
