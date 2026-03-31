@@ -301,6 +301,13 @@ with tab1:
                 else:
                     vat_val = amount * CURRENT_VAT_RATE
                     total_to_save = amount + vat_val
+
+                st.info(f"""
+                Net: {total_to_save - vat_val:.2f}
+                VAT: {vat_val:.2f}
+                Total: {total_to_save:.2f}
+                """)
+            
             else:
                 vat_val = 0
                 total_to_save = amount
