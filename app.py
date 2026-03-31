@@ -289,6 +289,11 @@ with tab1:
                 total_to_save = amount
 
             if st.form_submit_button("Save to Cloud"):
+                if not other_pin or other_pin == kra_pin:
+                    st.warning("Please provide a valid Counterparty PIN.")
+                elif amount <= 0:
+                    st.warning("Amount must be greater than 0.")
+                else:
                 try:
                     sheet_name = "Sales" if "Sales" in t_type else "Purchases"
                     existing_data = conn.read(worksheet=sheet_name, ttl=0)
