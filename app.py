@@ -19,6 +19,10 @@ now_kenya = datetime.now(kenya_tz)
 CURRENT_VAT_RATE = 0.16  
 VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE 
 
+# Setup Gemini
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+
 # Initialize session state for persistence
 if 'scanned_date' not in st.session_state: st.session_state.scanned_date = date.today()
 if 'scanned_total' not in st.session_state: st.session_state.scanned_total = 0.0
@@ -30,6 +34,29 @@ if 'pdf_report_bytes' not in st.session_state: st.session_state.pdf_report_bytes
 conn = st.connection("gsheets", type=GSheetsConnection)
 
 # --- 3. HELPER FUNCTIONS ---
+def scan_receipt_with_ai(uploaded_file):
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    mime_type = uploaded_file.type 
+    file_bytes = uploaded_file.getvalue()
+    
+    prompt = """
+    Analyze this document (eTIMS receipt or invoice). 
+    Return ONLY a JSON object with these keys: 
+    'date' (YYYY-MM-DD), 'total' (number), 'pin' (Seller KRA PIN), 'vat' (number).
+    If a value is missing, use null.
+    """
+    
+    response = model.generate_content([
+        prompt, 
+        {'mime_type': mime_type, 'data': file_bytes}
+    ])
+    
+    try:
+        clean_json = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(clean_json)
+    except:
+        return None
+
 @st.cache_data(ttl=300)
 def get_recent_pins_cached(_conn, pin_owner):
     try:
@@ -128,8 +155,9 @@ st.markdown("""
 # --- 5. SIDEBAR ---
 with st.sidebar:
     st.header("🏢 GEMPS 🇰🇪")
-    kra_pin_raw = st.text_input("Your KRA PIN", placeholder="e.g., A012345678Z")
+    kra_pin_raw = st.text_input("Your KRA PIN", value=st.session_state.get('sidebar_pin', ""), placeholder="e.g., A012345678Z")
     kra_pin = kra_pin_raw.upper().strip()
+    st.session_state.sidebar_pin = kra_pin
     is_valid_pin = bool(re.match(r"^[A-Z]\d{9}[A-Z]$", kra_pin))
     
     if kra_pin:
@@ -171,8 +199,34 @@ tab1, tab2, tab3 = st.tabs(["➕ Single Entry", "📑 Bulk Queue", "📊 Monthly
 with tab1:
     if not kra_pin: st.info("👋 Enter KRA PIN to start.")
     else:
-        # (Scanner section removed as per user instruction for speed)
-        
+        # AI Scanner Expander
+        with st.expander("📸 AI Receipt Scanner & PDF Reader", expanded=False):
+            input_method = st.radio("Select Input", ["Camera", "Upload File"], horizontal=True)
+            uploaded_doc = st.camera_input("Snap photo") if input_method == "Camera" else st.file_uploader("Upload Image/PDF", type=["pdf", "png", "jpg", "jpeg"])
+            
+            if uploaded_doc:
+                if st.button("🚀 Process with AI", use_container_width=True):
+                    try:
+                        with st.spinner("Gemini is reading..."):
+                            extracted_data = scan_receipt_with_ai(uploaded_doc)
+                            if extracted_data:
+                                # Update session state
+                                st.session_state.scanned_total = float(extracted_data.get('total', 0.0))
+                                st.session_state.scanned_pin = str(extracted_data.get('pin', "")).upper()
+                                raw_date = extracted_data.get('date')
+                                try:
+                                    st.session_state.scanned_date = datetime.strptime(raw_date, '%Y-%m-%d').date()
+                                except:
+                                    st.session_state.scanned_date = date.today()
+                                st.toast("✅ Data Extracted!")
+                                st.rerun()
+                            else:
+                                st.error("AI couldn't find data.")
+                    except Exception as e:
+                        st.error(f"AI Error: {e}")
+
+        st.divider()
+
         with st.form("transaction_form", clear_on_submit=True):
             t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
             col1, col2 = st.columns(2)
@@ -181,28 +235,47 @@ with tab1:
                 amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.scanned_total)
             with col2:
                 recent_pins = get_recent_pins_cached(conn, kra_pin)
-                other_pin_sel = st.selectbox("Counterparty PIN", [""] + recent_pins + ["➕ New PIN..."])
-                other_pin = st.text_input("Manual PIN Entry").upper().strip() if other_pin_sel == "➕ New PIN..." else other_pin_sel
+                s_pin = st.session_state.get('scanned_pin', "")
+                
+                if s_pin:
+                    other_pin = st.text_input("Counterparty PIN (Detected)", value=s_pin).upper().strip()
+                else:
+                    other_pin_sel = st.selectbox("Counterparty PIN", [""] + recent_pins + ["➕ New PIN..."])
+                    other_pin = st.text_input("Manual PIN Entry").upper().strip() if other_pin_sel == "➕ New PIN..." else other_pin_sel
+                
                 calc_mode = st.radio("Pricing", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
 
             if st.form_submit_button("Save to Cloud", use_container_width=True):
                 if not other_pin or other_pin == kra_pin: st.error("⚠️ Invalid Counterparty PIN.")
                 elif amount <= 0: st.warning("⚠️ Amount must be > 0.")
                 else:
-                    try:
-                        v_val = (amount - (amount/VAT_MULTIPLIER)) if calc_mode == "VAT Inclusive" else (amount * CURRENT_VAT_RATE)
-                        t_save = amount if calc_mode == "VAT Inclusive" else (amount + v_val)
-                        s_name = "Sales" if "Sales" in t_type else "Purchases"
-                        
-                        df = conn.read(worksheet=s_name, ttl=0)
-                        new_row = pd.DataFrame([{"UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, 
-                                                "Total": int(round(t_save)), "VAT": int(round(v_val)), "eTIMS": "Yes"}])
-                        conn.update(worksheet=s_name, data=pd.concat([df, new_row], ignore_index=True))
-                        st.success(f"✅ Saved!")
-                        st.balloons()
-                        time.sleep(1)
-                        st.rerun()
-                    except Exception as e: st.error(f"Save Error: {e}")
+                    with st.status("Saving...") as status:
+                        try:
+                            v_val = (amount - (amount/VAT_MULTIPLIER)) if calc_mode == "VAT Inclusive" else (amount * CURRENT_VAT_RATE)
+                            t_save = amount if calc_mode == "VAT Inclusive" else (amount + v_val)
+                            s_name = "Sales" if "Sales" in t_type else "Purchases"
+                            
+                            df = conn.read(worksheet=s_name, ttl=0)
+                            
+                            # Duplicate protection check
+                            if not df.empty and df.iloc[-1]['Total'] == int(round(t_save)) and df.iloc[-1]['CounterpartyPIN'] == other_pin:
+                                status.update(label="⚠️ Duplicate potential detected.", state="error")
+                            else:
+                                new_row = pd.DataFrame([{"UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, 
+                                                        "Total": int(round(t_save)), "VAT": int(round(v_val)), "eTIMS": "Yes"}])
+                                conn.update(worksheet=s_name, data=pd.concat([df, new_row], ignore_index=True))
+                                
+                                # Clear scanner state
+                                st.session_state.scanned_date = date.today()
+                                st.session_state.scanned_total = 0.0
+                                st.session_state.scanned_pin = ""
+                                
+                                status.update(label="✅ Saved Successfully!", state="complete")
+                                st.balloons()
+                                time.sleep(1)
+                                st.rerun()
+                        except Exception as e: 
+                            status.update(label=f"❌ Error: {e}", state="error")
 
 with tab2:
     if not kra_pin: st.info("👋 Enter KRA PIN.")
