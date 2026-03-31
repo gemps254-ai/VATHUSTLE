@@ -307,8 +307,8 @@ with tab1:
                         }])
                         conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
                         st.success("✅ Saved!")
-                except Exception as e:
-                    st.error(f"Error: {e}")
+            except Exception as e:
+                st.error(f"Error: {e}")
 
 # --- TAB 2: BULK QUEUE (Integrated with Global VAT Toggle) ---
 with tab2:
