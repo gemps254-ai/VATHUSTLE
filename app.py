@@ -11,7 +11,7 @@ import google.generativeai as genai
 import json
 import uuid
 import pytesseract
-import tesseractocr
+import tesseract ocr
 from PIL import Image
 
 # ------------------ CONFIG ------------------
