@@ -296,17 +296,17 @@ with tab1:
                 else:
                     try:
                         sheet_name = "Sales" if "Sales" in t_type else "Purchases"
-                    existing_data = conn.read(worksheet=sheet_name, ttl=0)
-                    new_entry = pd.DataFrame([{
-                        "UserPIN": kra_pin, 
-                        "Date": str(t_date), 
-                        "CounterpartyPIN": other_pin, 
-                        "Total": int(round(total_to_save)), 
-                        "VAT": int(round(vat_val)), 
-                        "eTIMS": "Yes" if is_etims else "No"
-                    }])
-                    conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
-                    st.success("✅ Saved!")
+                        existing_data = conn.read(worksheet=sheet_name, ttl=0)
+                        new_entry = pd.DataFrame([{
+                            "UserPIN": kra_pin, 
+                            "Date": str(t_date), 
+                            "CounterpartyPIN": other_pin, 
+                            "Total": int(round(total_to_save)), 
+                            "VAT": int(round(vat_val)), 
+                            "eTIMS": "Yes" if is_etims else "No"
+                        }])
+                        conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
+                        st.success("✅ Saved!")
                 except Exception as e:
                     st.error(f"Error: {e}")
 
