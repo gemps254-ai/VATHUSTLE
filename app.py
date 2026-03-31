@@ -9,6 +9,20 @@ import io
 
 from fpdf import FPDF
 
+def get_recent_pins(pin_owner):
+    try:
+        s_df = conn.read(worksheet="Sales", ttl=0)
+        p_df = conn.read(worksheet="Purchases", ttl=0)
+        
+        # Filter for this user's records only
+        s_pins = s_df[s_df['UserPIN'] == pin_owner]['CounterpartyPIN'].tolist() if not s_df.empty else []
+        p_pins = p_df[p_df['UserPIN'] == pin_owner]['CounterpartyPIN'].tolist() if not p_df.empty else []
+        
+        # Return unique, cleaned list of PINs
+        return sorted(list(set(s_pins + p_pins)))
+    except:
+        return []
+
 def create_full_vat_report(s_data, p_data, pin, period, o_v, i_v, n_v):
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=15)
