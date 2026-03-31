@@ -293,52 +293,86 @@ with tab1:
                     st.caption("VAT Calculation: **OFF**")
                     calc_mode = "Exempt"
 
-            # Calculation Logic
-            if enable_vat_calc:
-                if calc_mode == "VAT Inclusive":
-                    vat_val = amount - (amount / VAT_MULTIPLIER)
-                    total_to_save = amount
-                else:
-                    vat_val = amount * CURRENT_VAT_RATE
-                    total_to_save = amount + vat_val
+            # --- Calculation Logic ---
+if enable_vat_calc:
+    if calc_mode == "VAT Inclusive":
+        vat_val = amount - (amount / VAT_MULTIPLIER)
+        total_to_save = amount
+    else:
+        vat_val = amount * CURRENT_VAT_RATE
+        total_to_save = amount + vat_val
 
-                st.info(f"""
-                Net: {total_to_save - vat_val:.2f}
-                VAT: {vat_val:.2f}
-                Total: {total_to_save:.2f}
-                """)
+    # Display calculations temporarily
+    calc_placeholder = st.empty()
+    calc_placeholder.info(f"""
+        **Preview Calculations:**
+        * Net: {total_to_save - vat_val:,.2f}
+        * VAT: {vat_val:,.2f}
+        * Total: {total_to_save:,.2f}
+    """)
+else:
+    vat_val = 0
+    total_to_save = amount
+
+# --- Save Logic with Undo & Validation ---
+if st.form_submit_button("Save to Cloud"):
+    # 1. STRICT VALIDATION
+    errors = []
+    if t_date is None: errors.append("Date")
+    if "Select" in t_type: errors.append("Category")
+    if not other_pin or len(other_pin) < 11: errors.append("Valid Counterparty PIN")
+    if amount <= 0: errors.append("Amount (must be greater than 0)")
+
+    if errors:
+        st.error(f"❌ Cannot save. Please fix: {', '.join(errors)}")
+    else:
+        # 2. THE UNDO BUFFER
+        undo_placeholder = st.empty()
+        with undo_placeholder.container():
+            st.warning("Saving transaction...")
+            # This creates a button that sets a flag if clicked
+            undo_clicked = st.button("⏪ UNDO (10s)", key="undo_btn")
+            
+            # Progress bar for the 10-second wait
+            bar = st.progress(0)
+            for percent_complete in range(100):
+                time.sleep(0.1) # 0.1 * 100 = 10 seconds
+                bar.progress(percent_complete + 1)
+                if undo_clicked:
+                    break
+
+        if undo_clicked:
+            undo_placeholder.error("🔄 Save Cancelled. You can edit the form and try again.")
+            time.sleep(2)
+            undo_placeholder.empty()
+        else:
+            # 3. ACTUAL CLOUD PUSH (Runs only if Undo wasn't clicked)
+            try:
+                undo_placeholder.info("🚀 Pushing to Cloud...")
+                sheet_name = "Sales" if "Sales" in t_type else "Purchases"
+                existing_data = conn.read(worksheet=sheet_name, ttl=0)
                 
-            else:
-                vat_val = 0
-                total_to_save = amount
-
-            if st.form_submit_button("Save to Cloud"):
-                if t_date is None:
-                    st.error("Please enter a valid date (YYYY/MM/DD).")
-                elif "Select" in t_type:
-                    st.error("Please select a Category.")
-                else:
-                    try:
-                        sheet_name = "Sales" if "Sales" in t_type else "Purchases"
-                        existing_data = conn.read(worksheet=sheet_name, ttl=0)
-                        new_entry = pd.DataFrame([{
-                            "UserPIN": kra_pin, 
-                            "Date": str(t_date), 
-                            "CounterpartyPIN": other_pin, 
-                            "Total": int(round(total_to_save)), 
-                            "VAT": int(round(vat_val)), 
-                            "eTIMS": "Yes" if is_etims else "No"
-                        }])
-                        conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
-                        # Reset scanner state after successful save
-                        st.session_state.scanned_date = None
-                        st.session_state.scanned_total = 0.0
-                        st.session_state.scanned_pin = ""
-                        st.success("✅ Saved!")
-                        time.sleep(1)
-                        st.rerun()
-                    except Exception as e:
-                        st.error(f"Error: {e}")
+                new_entry = pd.DataFrame([{
+                    "UserPIN": kra_pin, 
+                    "Date": str(t_date), 
+                    "CounterpartyPIN": other_pin, 
+                    "Total": int(round(total_to_save)), 
+                    "VAT": int(round(vat_val)), 
+                    "eTIMS": "Yes" if is_etims else "No"
+                }])
+                
+                conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
+                
+                # Cleanup
+                st.session_state.scanned_date = None
+                st.session_state.scanned_total = 0.0
+                st.session_state.scanned_pin = ""
+                
+                undo_placeholder.success("✅ Saved Successfully!")
+                time.sleep(1)
+                st.rerun()
+            except Exception as e:
+                st.error(f"Cloud Error: {e}")
 
 with tab2:
     if not kra_pin: st.info("👋 Enter KRA PIN in sidebar.")
