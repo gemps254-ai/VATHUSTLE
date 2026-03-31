@@ -10,6 +10,9 @@ from fpdf import FPDF
 import google.generativeai as genai
 import json
 
+if 'kra_pin' not in locals():
+    kra_pin = None
+
 # Setup Gemini
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
@@ -218,66 +221,68 @@ else:
 tab1, tab2, tab3 = st.tabs(["➕ Single Entry", "📑 Bulk Queue", "📊 Monthly Report"])
 
 with tab1:
+    # 1. INITIAL PIN CHECK
     if not kra_pin:
         st.info("👋 Enter KRA PIN in sidebar to start.")
     else:
-        # --- AI RECEIPT SCANNER SECTION ---
+        # 2. AI SCANNER (Must be OUTSIDE the form to avoid StreamlitAPIException)
         with st.expander("📸 AI Receipt Scanner & PDF Reader", expanded=False):
-            # Let user choose their input method
-            input_method = st.radio("Select Input", ["Camera", "Upload File (PDF/Image)"], horizontal=True)
+            input_method = st.radio("Select Input", ["Camera", "Upload File"], horizontal=True)
             
-            uploaded_doc = None
-            if input_method == "Camera":
-                uploaded_doc = st.camera_input("Snap a photo")
-            else:
-                uploaded_doc = st.file_uploader("Upload Receipt", type=["pdf", "png", "jpg", "jpeg"])
+            uploaded_doc = st.camera_input("Snap photo") if input_method == "Camera" else st.file_uploader("Upload Image/PDF", type=["pdf", "png", "jpg", "jpeg"])
             
             if uploaded_doc:
-                with st.spinner("AI is analyzing the document..."):
-                    extracted_data = scan_receipt_with_ai(uploaded_doc)
-                    
-                    if extracted_data:
-                        st.success("✅ Data Extracted!")
-                        # Fill session state
-                        try:
-                            st.session_state.scanned_date = datetime.strptime(extracted_data['date'], '%Y-%m-%d').date() if extracted_data['date'] else date.today()
-                        except:
-                            st.session_state.scanned_date = date.today()
+                try:
+                    with st.spinner("AI is analyzing..."):
+                        extracted_data = scan_receipt_with_ai(uploaded_doc)
                         
-                        st.session_state.scanned_total = float(extracted_data['total']) if extracted_data['total'] else 0.0
-                        st.session_state.scanned_pin = str(extracted_data['pin']).upper() if extracted_data['pin'] else ""
-                        
-                        st.json(extracted_data)
-                    else:
-                        st.error("Could not process this file. Please try a clearer image or manual entry.")
+                        if extracted_data:
+                            st.success("✅ Data Extracted!")
+                            # Update session state for form pre-filling
+                            # We use .get() with defaults to prevent KeyErrors
+                            raw_date = extracted_data.get('date')
+                            try:
+                                st.session_state.scanned_date = datetime.strptime(raw_date, '%Y-%m-%d').date() if raw_date else date.today()
+                            except:
+                                st.session_state.scanned_date = date.today()
+
+                            st.session_state.scanned_total = float(extracted_data.get('total', 0.0))
+                            st.session_state.scanned_pin = str(extracted_data.get('pin', "")).upper()
+                            
+                            # Show extraction preview
+                            st.json(extracted_data)
+                        else:
+                            st.error("AI couldn't find data. Try a clearer photo or manual entry.")
+                except Exception as e:
+                    st.error(f"AI Connection Error: {e}. Check your API Key in Secrets.")
 
         st.divider()
-        
-        # --- UPDATED TRANSACTION FORM ---
+
+        # 3. TRANSACTION FORM
         with st.form("transaction_form", clear_on_submit=True):
             t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
             
             col1, col2 = st.columns(2)
             with col1:
-                # Pre-filled by AI if available
+                # Pre-filled by AI if data exists in session_state
                 t_date = st.date_input("Invoice Date", value=st.session_state.get('scanned_date', date.today()))
                 amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
-                # Pre-fill scanned PIN if available
-                scanned_pin = st.session_state.get('scanned_pin', "")
+                # Logic: Use AI-detected PIN if available, otherwise fallback to dropdown
+                s_pin = st.session_state.get('scanned_pin', "")
                 recent_pins = get_recent_pins(kra_pin)
                 
-                # Logic: If AI found a PIN, we use text_input. If not, we show the dropdown.
-                if scanned_pin:
-                    other_pin = st.text_input("Counterparty PIN (Detected)", value=scanned_pin).upper().strip()
+                if s_pin:
+                    other_pin = st.text_input("Counterparty PIN (Detected)", value=s_pin).upper().strip()
                 else:
                     other_pin_sel = st.selectbox("Counterparty PIN", [""] + recent_pins + ["➕ New PIN..."])
                     other_pin = st.text_input("Manual PIN Entry").upper().strip() if other_pin_sel == "➕ New PIN..." else other_pin_sel
                 
                 is_etims = st.toggle("eTIMS Certified?", value=True)
-                calc_mode = st.radio("Pricing", ["VAT Inclusive", "VAT Exclusive"], horizontal=True) if enable_vat_calc else "Exempt"
+                calc_mode = st.radio("Pricing", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
 
+            # 4. SAVE LOGIC
             if st.form_submit_button("Save to Cloud", use_container_width=True):
                 if not other_pin or other_pin == kra_pin: 
                     st.error("⚠️ Invalid Counterparty PIN.")
@@ -291,7 +296,7 @@ with tab1:
                         
                         s_name = "Sales" if "Sales" in t_type else "Purchases"
                         
-                        # Data Persistence
+                        # Data Persistence to Google Sheets
                         df = conn.read(worksheet=s_name, ttl=0)
                         new_row = pd.DataFrame([{
                             "UserPIN": kra_pin, 
@@ -304,15 +309,16 @@ with tab1:
                         
                         conn.update(worksheet=s_name, data=pd.concat([df, new_row], ignore_index=True))
                         
-                        # Success and Cleanup
-                        st.success(f"✅ Saved to {s_name}!"); st.balloons()
+                        # Success Feedback
+                        st.success(f"✅ Transaction Saved to {s_name}!")
+                        st.balloons()
                         
-                        # Clear AI session state after successful save
+                        # Cleanup: Clear scanner session state so next entry starts fresh
                         for key in ['scanned_date', 'scanned_total', 'scanned_pin']:
                             if key in st.session_state: 
                                 del st.session_state[key]
                         
-                        st.rerun() # Refresh to clear form
+                        st.rerun() 
                         
                     except Exception as e: 
                         st.error(f"Error saving to Cloud: {e}")
