@@ -341,11 +341,11 @@ with tab3:
         sel_y = cy.selectbox(
         "Year", [None] + year_range, index=0, format_func=lambda x: "Year" if x is None else x)
             
-            if st.button(f"Generate Report"):
-                if sel_m and sel_y:
-                    # Note: Since sel_y is now a string, we use it directly
-                    f_str = f"{sel_y}-{months.index(sel_m)+1:02d}"
-                    # ... rest of your code ...
+        if st.button(f"Generate Report"):
+            if sel_m and sel_y:
+                # Note: Since sel_y is now a string, we use it directly
+                f_str = f"{sel_y}-{months.index(sel_m)+1:02d}"
+                # ... rest of your code ...
                 s_df = conn.read(worksheet="Sales", ttl=0)
                 p_df = conn.read(worksheet="Purchases", ttl=0)
                 u_s = s_df[(s_df['UserPIN'] == kra_pin) & (s_df['Date'].astype(str).str.startswith(f_str))] if s_df is not None else pd.DataFrame()
