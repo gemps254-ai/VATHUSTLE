@@ -20,7 +20,7 @@ if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 def scan_receipt_with_ai(uploaded_file):
-    """Robust scanner that handles multimodal data correctly."""
+    """Robust scanner that handles multimodal data correctly with 1.5 Flash."""
     model = genai.GenerativeModel('gemini-1.5-flash')
     file_bytes = uploaded_file.getvalue()
     mime_type = uploaded_file.type 
@@ -33,17 +33,21 @@ def scan_receipt_with_ai(uploaded_file):
     Return ONLY a JSON object with these keys: 
     'date' (YYYY-MM-DD), 'total' (number), 'pin' (Seller KRA PIN), 'vat' (number).
     If it is a PDF with multiple pages, only analyze the first page.
-    If a value is missing, use null. Do not include markdown code blocks.
+    If a value is missing, use null.
     """
     
     try:
-        # Correct multimodal format for Gemini 1.5
+        # Correct multimodal format for Gemini API
         response = model.generate_content([
             prompt, 
             {'mime_type': mime_type, 'data': file_bytes}
         ])
         
-        clean_json = response.text.replace("```json", "").replace("```", "").strip()
+        # Aggressive cleaning of the response text to extract valid JSON
+        text_content = response.text
+        # Remove markdown code blocks if present
+        clean_json = re.sub(r'```json|```', '', text_content).strip()
+        
         return json.loads(clean_json)
     except Exception as e:
         st.error(f"AI Read Error: {e}")
@@ -237,10 +241,11 @@ with tab1:
                                     st.session_state.scanned_date = datetime.strptime(raw_date, '%Y-%m-%d').date()
                                 except:
                                     st.session_state.scanned_date = date.today()
-                                st.toast("✅ Data Extracted!") 
-                                st.rerun() # Forces UI refresh to show new data in form
+                                
+                                st.toast("✅ Data Extracted!")
+                                st.rerun() # Refresh to populate the form fields below
                             else:
-                                st.error("AI couldn't find data.")
+                                st.error("AI couldn't find data. Please try a clearer photo.")
                     except Exception as e:
                         st.error(f"AI Error: {e}")
 
@@ -250,7 +255,7 @@ with tab1:
             t_type = st.selectbox("Category", ["Select Category","Sales (Output VAT)", "Purchase (Input VAT)"])
             col1, col2 = st.columns(2)
             with col1:
-                # Use text_input for literal YYYY/MM/DD placeholder
+                # Text input with literal placeholder as requested
                 date_val = st.session_state.get('scanned_date')
                 date_str = st.text_input(
                     "Invoice Date", 
@@ -258,8 +263,9 @@ with tab1:
                     placeholder="YYYY/MM/DD"
                 )
                 
-                # Conversion logic
+                # Conversion logic for processing
                 try:
+                    # Accepts both YYYY/MM/DD and YYYY-MM-DD
                     t_date = datetime.strptime(date_str.replace("-", "/"), '%Y/%m/%d').date() if date_str else None
                 except:
                     t_date = None
@@ -306,7 +312,7 @@ with tab1:
                             "eTIMS": "Yes" if is_etims else "No"
                         }])
                         conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
-                        # Clear session state after save
+                        # Reset scanner state after successful save
                         st.session_state.scanned_date = None
                         st.session_state.scanned_total = 0.0
                         st.session_state.scanned_pin = ""
