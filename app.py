@@ -268,4 +268,108 @@ with tab1:
                     else:
                         other_pin = other_pin_sel
                 
-                is_etims = st.toggle("
+                is_etims = st.toggle("eTIMS Certified?", value=True)
+                
+                # CHANGE 4: Functional VAT Calculations Button
+                if enable_vat_calc:
+                    calc_mode = st.radio("Pricing", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
+                else:
+                    calc_mode = "VAT Exempt"
+
+            if st.form_submit_button("Save to Cloud", use_container_width=True):
+                if not other_pin or other_pin == kra_pin: 
+                    st.error("⚠️ Invalid Counterparty PIN.")
+                elif amount <= 0: 
+                    st.warning("⚠️ Amount must be > 0.")
+                else:
+                    try:
+                        # Logic for VAT Value based on Toggle (Change 4)
+                        if enable_vat_calc:
+                            v_val = (amount - (amount/VAT_MULTIPLIER)) if calc_mode == "VAT Inclusive" else (amount * CURRENT_VAT_RATE)
+                            t_save = amount if calc_mode == "VAT Inclusive" else (amount + v_val)
+                        else:
+                            v_val = 0.0
+                            t_save = amount
+                        
+                        s_name = "Sales" if "Sales" in t_type else "Purchases"
+                        df = conn.read(worksheet=s_name, ttl=0)
+                        new_row = pd.DataFrame([{
+                            "UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, 
+                            "Total": int(round(t_save)), "VAT": int(round(v_val)), "eTIMS": "Yes" if is_etims else "No"
+                        }])
+                        conn.update(worksheet=s_name, data=pd.concat([df, new_row], ignore_index=True))
+                        st.success(f"✅ Saved to {s_name}!")
+                        st.balloons()
+                        st.session_state.scanned_date = date.today()
+                        st.session_state.scanned_total = 0.0
+                        st.session_state.scanned_pin = ""
+                        time.sleep(1)
+                        st.rerun() 
+                    except Exception as e: 
+                        st.error(f"Error saving: {e}")
+
+with tab2:
+    if not kra_pin: st.info("👋 Enter KRA PIN in sidebar.")
+    elif uploaded_file:
+        try:
+            up_sales = pd.read_excel(uploaded_file, sheet_name='Sales')
+            up_purch = pd.read_excel(uploaded_file, sheet_name='Purchases')
+            def proc(df, is_s):
+                if df.empty: return pd.DataFrame()
+                res = []
+                for _, r in df.dropna(subset=['Amount']).iterrows():
+                    amt = float(r['Amount'])
+                    vt = str(r.get('VAT_Type (Inclusive/Exclusive/Exempt)', 'Exempt'))
+                    v = (amt - (amt/VAT_MULTIPLIER)) if "Inclusive" in vt else (amt*0.16 if "Exclusive" in vt else 0)
+                    t = amt if "Inclusive" in vt else (amt + v if "Exclusive" in vt else amt)
+                    res.append({"UserPIN": kra_pin, "Date": str(r.get('Date (YYYY-MM-DD)', today)).split(" ")[0], "CounterpartyPIN": str(r.get('CounterpartyPIN', '')), "Total": int(round(t)), "VAT": int(round(v)), "eTIMS": "Yes", "Category": "Sales" if is_s else "Purchases"})
+                return pd.DataFrame(res)
+            q_df = pd.concat([proc(up_sales, True), proc(up_purch, False)], ignore_index=True)
+            if not q_df.empty:
+                edited = st.data_editor(q_df, use_container_width=True, hide_index=True, num_rows="dynamic")
+                if st.button("🚀 Push Queue to Cloud"):
+                    for cat in ["Sales", "Purchases"]:
+                        sub = edited[edited['Category'] == cat].drop(columns=['Category'])
+                        if not sub.empty:
+                            exist = conn.read(worksheet=cat, ttl=0)
+                            conn.update(worksheet=cat, data=pd.concat([exist, sub], ignore_index=True))
+                    st.success("✅ Bulk Upload Complete!")
+            else: st.warning("File is empty.")
+        except Exception as e: st.error(f"Excel Error: {e}")
+
+with tab3:
+    if not kra_pin: st.info("👋 Enter KRA PIN in sidebar.")
+    else:
+        cm, cy = st.columns(2)
+        months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
+        sel_m = cm.selectbox("Month", months, index=now_kenya.month-1)
+        sel_y = cy.selectbox("Year", range(2024, now_kenya.year + 2), index=now_kenya.year-2024)
+        f_str = f"{sel_y}-{months.index(sel_m)+1:02d}"
+
+        if st.button(f"Generate Report for {sel_m} {sel_y}"):
+            s_df = conn.read(worksheet="Sales", ttl=0)
+            p_df = conn.read(worksheet="Purchases", ttl=0)
+            u_s = s_df[(s_df['UserPIN'] == kra_pin) & (s_df['Date'].astype(str).str.startswith(f_str))] if s_df is not None else pd.DataFrame()
+            u_p = p_df[(p_df['UserPIN'] == kra_pin) & (p_df['Date'].astype(str).str.startswith(f_str))] if p_df is not None else pd.DataFrame()
+            ov, iv = u_s['VAT'].astype(float).sum() if not u_s.empty else 0.0, u_p['VAT'].astype(float).sum() if not u_p.empty else 0.0
+            st.session_state.report_data = {"u_s": u_s, "u_p": u_p, "o_v": ov, "i_v": iv, "n_v": ov-iv, "period": f"{sel_m} {sel_y}"}
+
+        if rd := st.session_state.get("report_data"):
+            m1, m2, m3 = st.columns(3)
+            m1.metric("Output VAT", f"KES {rd['o_v']:,.0f}")
+            m2.metric("Input VAT", f"KES {rd['i_v']:,.0f}")
+            m3.metric("Net VAT", f"KES {abs(rd['n_v']):,.0f}", delta="Due" if rd['n_v']>0 else "Credit")
+
+            st.write("---")
+            btn_col1, btn_col2, btn_col3 = st.columns(3)
+            with btn_col1:
+                if st.button("📄 Prepare Final PDF", use_container_width=True):
+                    st.session_state.pdf_report_bytes = create_full_vat_report(rd["u_s"], rd["u_p"], kra_pin, rd["period"], rd["o_v"], rd["i_v"], rd["n_v"])
+            with btn_col2:
+                pdf_data = st.session_state.get("pdf_report_bytes")
+                st.download_button(label="📥 Download PDF", data=pdf_data if pdf_data else b"", file_name=f"VAT_Report_{rd['period']}.pdf", mime="application/pdf", use_container_width=True, disabled=not pdf_data)
+            with btn_col3:
+                if st.button("🔄 Clear Report", use_container_width=True):
+                    st.session_state.report_data = None
+                    st.session_state.pdf_report_bytes = None
+                    st.rerun()
