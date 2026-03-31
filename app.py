@@ -150,6 +150,23 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("GEMPS 🇰🇪 VAT Tracker")
+if kra_pin:
+    st.subheader(f"📊 March 2026 Snapshot") # Dynamic month
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
+        st.metric("Total Sales VAT", f"KES {live_out:,.0f}")
+    with c2:
+        st.metric("Total Purchase VAT", f"KES {live_in:,.0f}")
+    with c3:
+        # Dynamic coloring: Red if they owe, Green if they have a credit
+        st.metric(
+            "Current VAT Position", 
+            f"KES {abs(net_payable):,.0f}",
+            delta="Payable to KRA" if net_payable > 0 else "VAT Credit",
+            delta_color="inverse" if net_payable > 0 else "normal"
+        )
+    st.divider()
 
 # 2. Connection
 conn = st.connection("gsheets", type=GSheetsConnection)
@@ -227,6 +244,27 @@ with st.sidebar:
    
 # 4. Main Interface
 tab1, tab2, tab3 = st.tabs(["➕ Single Entry", "📑 Bulk Queue", "📊 Monthly Report"])
+
+# --- AUTO-INSIGHTS LOGIC ---
+def get_current_month_stats(pin):
+    try:
+        current_filter = datetime.now(kenya_tz).strftime('%Y-%m')
+        s_df = conn.read(worksheet="Sales", ttl=0)
+        p_df = conn.read(worksheet="Purchases", ttl=0)
+        
+        # Filter for current month and user
+        c_sales = s_df[(s_df['UserPIN'] == pin) & (s_df['Date'].str.startswith(current_filter))]
+        c_purch = p_df[(p_df['UserPIN'] == pin) & (p_df['Date'].str.startswith(current_filter))]
+        
+        out_v = c_sales['VAT'].sum() if not c_sales.empty else 0
+        in_v = c_purch['VAT'].sum() if not c_purch.empty else 0
+        return out_v, in_v
+    except:
+        return 0, 0
+
+# Fetch stats
+live_out, live_in = get_current_month_stats(kra_pin)
+net_payable = live_out - live_in
 
 # --- TAB 1: SINGLE ENTRY (Phase 2 Optimized) ---
 with tab1:
