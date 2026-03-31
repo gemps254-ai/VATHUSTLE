@@ -256,8 +256,8 @@ with tab1:
             
             with col2:
             # 1. Check for AI detected PIN first
-            s_pin = st.session_state.get('scanned_pin', "")
-            recent_pins = get_recent_pins_cached(conn, kra_pin)
+                s_pin = st.session_state.get('scanned_pin', "")
+                recent_pins = get_recent_pins_cached(conn, kra_pin)
             
             # 2. Use a hybrid selection/input logic
             # This allows users to either select from a list OR type a completely new PIN
