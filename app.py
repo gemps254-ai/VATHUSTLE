@@ -228,14 +228,19 @@ with st.sidebar:
 # 4. Main Interface
 tab1, tab2, tab3 = st.tabs(["➕ Single Entry", "📑 Bulk Queue", "📊 Monthly Report"])
 
-# --- TAB 1: SINGLE ENTRY (Your existing working code) ---
+# --- TAB 1: SINGLE ENTRY (Phase 2 Optimized) ---
 with tab1:
     if not kra_pin:
         st.info("👋 Enter KRA PIN in sidebar to start.")
     else:
+        # 1. Mobile-Friendly Scan Button (Placed OUTSIDE the form)
+        st.button("📸 Scan Receipt (Coming Soon)", icon="📷", use_container_width=True, disabled=True)
+        st.write("") # Spacer
+
         with st.form("transaction_form", clear_on_submit=True):
             st.subheader("Record New Entry")
             t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
+            
             col1, col2 = st.columns(2)
             
             with col1:
@@ -243,40 +248,28 @@ with tab1:
                 amount = st.number_input("Total Amount (KES)", min_value=0, step=1, format="%d")
             
             with col2:
-                # NEW: Smart PIN Suggestions
+                # Smart PIN Suggestions
                 recent_pins = get_recent_pins(kra_pin)
-                
-                # If they have history, show a selectbox that allows new entries
-                # If not, show the standard text input
-                other_pin = st.selectbox(
+                other_pin_selection = st.selectbox(
                     "Counterparty PIN",
                     options=[""] + recent_pins + ["➕ New PIN..."],
-                    index=0,
-                    help="Select a recent partner or type 'New' to enter a fresh PIN."
+                    index=0
                 )
 
-                if other_pin == "➕ New PIN...":
-                    other_pin = st.text_input("Enter New PIN", value="").upper().strip()
-                
-                # Validation Guard
-                if other_pin == kra_pin:
-                    st.error("⚠️ Counterparty PIN cannot be your own PIN.")
+                # logic to handle manual PIN entry if "New PIN" is selected
+                if other_pin_selection == "➕ New PIN...":
+                    other_pin = st.text_input("Enter New PIN").upper().strip()
+                else:
+                    other_pin = other_pin_selection
                 
                 is_etims = st.toggle("eTIMS Certified?", value=True)
                 
-                # --- PHASE 2 PREVIEW ---
-                st.button("📸 Scan Receipt (Coming Soon)", icon="📷", use_container_width=True, disabled=True)
-                           
-                is_etims = st.toggle("eTIMS Certified?", value=True)
-                
-                # Link to Sidebar Toggle
                 if enable_vat_calc:
                     calc_mode = st.radio("Pricing Type", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
                 else:
-                    st.caption("VAT Calculation: **OFF**")
                     calc_mode = "Exempt"
 
-            # Calculation Logic
+            # Calculation Logic (Keep your existing logic here)
             if enable_vat_calc:
                 if calc_mode == "VAT Inclusive":
                     vat_val = amount - (amount / VAT_MULTIPLIER)
@@ -285,14 +278,16 @@ with tab1:
                     vat_val = amount * CURRENT_VAT_RATE
                     total_to_save = amount + vat_val
             else:
-                vat_val = 0
-                total_to_save = amount
+                vat_val, total_to_save = 0, amount
 
-            if st.form_submit_button("Save to Cloud"):
+            # The ONLY button allowed in a form
+            submit_btn = st.form_submit_button("Save to Cloud", use_container_width=True)
+            
+            if submit_btn:
                 if not other_pin or other_pin == kra_pin:
-                    st.warning("Please provide a valid Counterparty PIN.")
+                    st.error("⚠️ Please provide a valid Counterparty PIN (cannot be your own).")
                 elif amount <= 0:
-                    st.warning("Amount must be greater than 0.")
+                    st.warning("⚠️ Amount must be greater than 0.")
                 else:
                     try:
                         sheet_name = "Sales" if "Sales" in t_type else "Purchases"
@@ -306,7 +301,8 @@ with tab1:
                             "eTIMS": "Yes" if is_etims else "No"
                         }])
                         conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
-                        st.success("✅ Saved!")
+                        st.success("✅ Saved Successfully!")
+                        st.balloons()
                     except Exception as e:
                         st.error(f"Error: {e}")
 
