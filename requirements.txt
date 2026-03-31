@@ -5,3 +5,4 @@ xlsxwriter
 openpyxl
 pytz
 fpdf
+google-generativeai
