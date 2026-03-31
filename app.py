@@ -272,19 +272,14 @@ with tab1:
             col1, col2 = st.columns(2)
             
             with col1:
-                date_val = st.session_state.get('scanned_date')
-                date_str = st.text_input(
+                # NEW DATE INPUT: Automatically uses scanned_date or defaults to today
+                t_date = st.date_input(
                     "Invoice Date", 
-                    value=date_val.strftime('%Y/%m/%d') if date_val else "",
-                    placeholder="YYYY/MM/DD"
+                    value=st.session_state.get('scanned_date', date.today()),
+                    format="YYYY/MM/DD"
                 )
-                
-                try:
-                    t_date = datetime.strptime(date_str.replace("-", "/"), '%Y/%m/%d').date() if date_str else None
-                except:
-                    t_date = None
 
-                amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
+                amount = st.number_input("Total Amount (KES)", min_value=0.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
                 other_pin = st.text_input("Counterparty PIN", placeholder="e.g., A012345678Z", value=st.session_state.get('scanned_pin', "")).upper()
@@ -333,12 +328,12 @@ with tab1:
             with undo_placeholder.container():
                 st.warning("Transaction queued...")
                 # Regular button is allowed here because we are outside the form
-                undo_clicked = st.button("⏪ UNDO (10s)", key="undo_btn")
+                undo_clicked = st.button("⏪ UNDO (5s)", key="undo_btn")
                 
                 bar = st.progress(0)
-                for percent_complete in range(100):
+                for percent_complete in range(50):
                     time.sleep(0.1)
-                    bar.progress(percent_complete + 1)
+                    bar.progress(percent_complete + 1)*2)
                     if undo_clicked:
                         break
 
