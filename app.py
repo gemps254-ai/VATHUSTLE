@@ -249,46 +249,44 @@ with tab1:
                 amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
-                other_pin = st.text_input("Counterparty PIN").upper()        
+                other_pin = st.text_input("Counterparty PIN").upper()
                 is_etims = st.toggle("eTIMS Certified?", value=True)
-            
-            # 3. VAT Calculations Toggle
-            if enable_vat_calc:
-                calc_mode = st.radio("Pricing", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
-            else:
-                calc_mode = "VAT Exempt"
-
-            if st.form_submit_button("Save to Cloud", use_container_width=True):
-                if not other_pin or other_pin == kra_pin: 
-                    st.error("⚠️ Invalid Counterparty PIN.")
-                elif amount <= 0: 
-                    st.warning("⚠️ Amount must be > 0.")
+                
+                # Link to Sidebar Toggle
+                if enable_vat_calc:
+                    calc_mode = st.radio("Pricing Type", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
                 else:
-                    try:
-                        # Logic for VAT Value based on Toggle (Change 4)
-                        if enable_vat_calc:
-                            v_val = (amount - (amount/VAT_MULTIPLIER)) if calc_mode == "VAT Inclusive" else (amount * CURRENT_VAT_RATE)
-                            t_save = amount if calc_mode == "VAT Inclusive" else (amount + v_val)
-                        else:
-                            v_val = 0.0
-                            t_save = amount
-                        
-                        s_name = "Sales" if "Sales" in t_type else "Purchases"
-                        df = conn.read(worksheet=s_name, ttl=0)
-                        new_row = pd.DataFrame([{
-                            "UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, 
-                            "Total": int(round(t_save)), "VAT": int(round(v_val)), "eTIMS": "Yes" if is_etims else "No"
-                        }])
-                        conn.update(worksheet=s_name, data=pd.concat([df, new_row], ignore_index=True))
-                        st.success(f"✅ Saved to {s_name}!")
-                        st.balloons()
-                        st.session_state.scanned_date = date.today()
-                        st.session_state.scanned_total = 0.0
-                        st.session_state.scanned_pin = ""
-                        time.sleep(1)
-                        st.rerun() 
-                    except Exception as e: 
-                        st.error(f"Error saving: {e}")
+                    st.caption("VAT Calculation: **OFF**")
+                    calc_mode = "Exempt"
+
+            # Calculation Logic
+            if enable_vat_calc:
+                if calc_mode == "VAT Inclusive":
+                    vat_val = amount - (amount / VAT_MULTIPLIER)
+                    total_to_save = amount
+                else:
+                    vat_val = amount * CURRENT_VAT_RATE
+                    total_to_save = amount + vat_val
+            else:
+                vat_val = 0
+                total_to_save = amount
+
+            if st.form_submit_button("Save to Cloud"):
+                try:
+                    sheet_name = "Sales" if "Sales" in t_type else "Purchases"
+                    existing_data = conn.read(worksheet=sheet_name, ttl=0)
+                    new_entry = pd.DataFrame([{
+                        "UserPIN": kra_pin, 
+                        "Date": str(t_date), 
+                        "CounterpartyPIN": other_pin, 
+                        "Total": int(round(total_to_save)), 
+                        "VAT": int(round(vat_val)), 
+                        "eTIMS": "Yes" if is_etims else "No"
+                    }])
+                    conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
+                    st.success("✅ Saved!")
+                except Exception as e:
+                    st.error(f"Error: {e}")
 
 with tab2:
     if not kra_pin: st.info("👋 Enter KRA PIN in sidebar.")
