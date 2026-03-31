@@ -243,7 +243,30 @@ with tab1:
                 amount = st.number_input("Total Amount (KES)", min_value=0, step=1, format="%d")
             
             with col2:
-                other_pin = st.text_input("Counterparty PIN").upper()
+                # NEW: Smart PIN Suggestions
+                recent_pins = get_recent_pins(kra_pin)
+                
+                # If they have history, show a selectbox that allows new entries
+                # If not, show the standard text input
+                other_pin = st.selectbox(
+                    "Counterparty PIN",
+                    options=[""] + recent_pins + ["➕ New PIN..."],
+                    index=0,
+                    help="Select a recent partner or type 'New' to enter a fresh PIN."
+                )
+
+                if other_pin == "➕ New PIN...":
+                    other_pin = st.text_input("Enter New PIN", value="").upper().strip()
+                
+                # Validation Guard
+                if other_pin == kra_pin:
+                    st.error("⚠️ Counterparty PIN cannot be your own PIN.")
+                
+                is_etims = st.toggle("eTIMS Certified?", value=True)
+                
+                # --- PHASE 2 PREVIEW ---
+                st.button("📸 Scan Receipt (Coming Soon)", icon="📷", use_container_width=True, disabled=True)
+                           
                 is_etims = st.toggle("eTIMS Certified?", value=True)
                 
                 # Link to Sidebar Toggle
