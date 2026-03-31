@@ -150,6 +150,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 st.title("GEMPS 🇰🇪 VAT Tracker")
+
 if kra_pin:
     st.subheader(f"📊 March 2026 Snapshot") # Dynamic month
     c1, c2, c3 = st.columns(3)
@@ -241,7 +242,50 @@ with st.sidebar:
     # Feature 2: Upload File
     uploaded_file = st.file_uploader("📤 Upload filled template", type=["xlsx"])
     
-   
+# --- PHASE 2: LIVE DASHBOARD LOGIC ---
+if kra_pin and is_valid_pin:
+    # 1. Helper for live stats
+    def get_current_month_stats(pin):
+        try:
+            # Format: '2026-03'
+            current_filter = now_kenya.strftime('%Y-%m')
+            s_df = conn.read(worksheet="Sales", ttl=0)
+            p_df = conn.read(worksheet="Purchases", ttl=0)
+            
+            # Filter logic
+            c_sales = s_df[(s_df['UserPIN'] == pin) & (s_df['Date'].astype(str).str.startswith(current_filter))]
+            c_purch = p_df[(p_df['UserPIN'] == pin) & (p_df['Date'].astype(str).str.startswith(current_filter))]
+            
+            out_v = c_sales['VAT'].astype(float).sum() if not c_sales.empty else 0.0
+            in_v = c_purch['VAT'].astype(float).sum() if not c_purch.empty else 0.0
+            return out_v, in_v
+        except:
+            return 0.0, 0.0
+
+    # 2. Execution
+    live_out, live_in = get_current_month_stats(kra_pin)
+    net_payable = live_out - live_in
+    current_month_name = now_kenya.strftime('%B %Y')
+
+    # 3. Mobile-Optimized Display
+    st.subheader(f"📊 {current_month_name} Live Status")
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
+        st.metric("Sales VAT", f"KES {live_out:,.0f}")
+    with c2:
+        st.metric("Purchase VAT", f"KES {live_in:,.0f}")
+    with c3:
+        st.metric(
+            "Net Position", 
+            f"KES {abs(net_payable):,.0f}",
+            delta="Due to KRA" if net_payable > 0 else "VAT Credit",
+            delta_color="inverse" if net_payable > 0 else "normal"
+        )
+    st.divider()
+else:
+    # If no PIN is entered, show a welcoming "Empty State" for Mobile
+    st.info("👋 Welcome! Enter your KRA PIN in the sidebar to view your live VAT dashboard.")   
 # 4. Main Interface
 tab1, tab2, tab3 = st.tabs(["➕ Single Entry", "📑 Bulk Queue", "📊 Monthly Report"])
 
