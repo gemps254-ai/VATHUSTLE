@@ -11,7 +11,6 @@ import google.generativeai as genai
 import json
 
 # --- INITIALIZE SESSION STATE ---
-# Change: Initializing date as None to allow for placeholder behavior
 if 'scanned_date' not in st.session_state: st.session_state.scanned_date = None
 if 'scanned_total' not in st.session_state: st.session_state.scanned_total = 0.0
 if 'scanned_pin' not in st.session_state: st.session_state.scanned_pin = ""
@@ -21,27 +20,33 @@ if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
 def scan_receipt_with_ai(uploaded_file):
+    """Robust scanner that handles multimodal data correctly."""
     model = genai.GenerativeModel('gemini-1.5-flash')
-    mime_type = uploaded_file.type 
     file_bytes = uploaded_file.getvalue()
+    mime_type = uploaded_file.type 
     
+    if not mime_type:
+        mime_type = "application/pdf" if uploaded_file.name.endswith(".pdf") else "image/jpeg"
+
     prompt = """
     Analyze this document (eTIMS receipt or invoice). 
     Return ONLY a JSON object with these keys: 
     'date' (YYYY-MM-DD), 'total' (number), 'pin' (Seller KRA PIN), 'vat' (number).
     If it is a PDF with multiple pages, only analyze the first page.
-    If a value is missing, use null.
+    If a value is missing, use null. Do not include markdown code blocks.
     """
     
-    response = model.generate_content([
-        prompt, 
-        {'mime_type': mime_type, 'data': file_bytes}
-    ])
-    
     try:
+        # Correct multimodal format for Gemini 1.5
+        response = model.generate_content([
+            prompt, 
+            {'mime_type': mime_type, 'data': file_bytes}
+        ])
+        
         clean_json = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
-    except:
+    except Exception as e:
+        st.error(f"AI Read Error: {e}")
         return None
         
 # --- 1. INITIALIZE GLOBAL VARIABLES & CONFIG ---
@@ -233,6 +238,7 @@ with tab1:
                                 except:
                                     st.session_state.scanned_date = date.today()
                                 st.toast("✅ Data Extracted!") 
+                                st.rerun() # Forces UI refresh to show new data in form
                             else:
                                 st.error("AI couldn't find data.")
                     except Exception as e:
@@ -244,14 +250,24 @@ with tab1:
             t_type = st.selectbox("Category", ["Select Category","Sales (Output VAT)", "Purchase (Input VAT)"])
             col1, col2 = st.columns(2)
             with col1:
-                # Change: Using "value=None" and a format hint for the date input
-                t_date = st.date_input("Invoice Date", 
-                                      value=st.session_state.get('scanned_date'), 
-                                      format="YYYY/MM/DD")
+                # Use text_input for literal YYYY/MM/DD placeholder
+                date_val = st.session_state.get('scanned_date')
+                date_str = st.text_input(
+                    "Invoice Date", 
+                    value=date_val.strftime('%Y/%m/%d') if date_val else "",
+                    placeholder="YYYY/MM/DD"
+                )
+                
+                # Conversion logic
+                try:
+                    t_date = datetime.strptime(date_str.replace("-", "/"), '%Y/%m/%d').date() if date_str else None
+                except:
+                    t_date = None
+
                 amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
-                other_pin = st.text_input("Counterparty PIN").upper()
+                other_pin = st.text_input("Counterparty PIN", value=st.session_state.get('scanned_pin', "")).upper()
                 is_etims = st.toggle("eTIMS Certified?", value=True)
                 
                 if enable_vat_calc:
@@ -274,7 +290,9 @@ with tab1:
 
             if st.form_submit_button("Save to Cloud"):
                 if t_date is None:
-                    st.error("Please select a date first.")
+                    st.error("Please enter a valid date (YYYY/MM/DD).")
+                elif "Select" in t_type:
+                    st.error("Please select a Category.")
                 else:
                     try:
                         sheet_name = "Sales" if "Sales" in t_type else "Purchases"
@@ -288,7 +306,13 @@ with tab1:
                             "eTIMS": "Yes" if is_etims else "No"
                         }])
                         conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
+                        # Clear session state after save
+                        st.session_state.scanned_date = None
+                        st.session_state.scanned_total = 0.0
+                        st.session_state.scanned_pin = ""
                         st.success("✅ Saved!")
+                        time.sleep(1)
+                        st.rerun()
                     except Exception as e:
                         st.error(f"Error: {e}")
 
@@ -324,28 +348,19 @@ with tab2:
 with tab3:
     if not kra_pin: st.info("👋 Enter KRA PIN in sidebar.")
     else:
-        # --- Change 1 & 2: Month and Year Placeholders with Dynamic Year Range ---
         cm, cy = st.columns(2)
         months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
         
-        # Month Dropdown with placeholder
         sel_m = cm.selectbox("Month", [None] + months, index=0, format_func=lambda x: "Month" if x is None else x)
         
-        # Dynamic Year Range (+/- 5 years)
-        # --- FIXED YEAR SELECTION ---
         current_year = now_kenya.year
-        # Convert the range of integers into a list of strings
         year_range = [str(y) for y in range(current_year - 2, current_year + 4)]
             
-        # Now both None and the years are handled as objects/strings consistently
-        sel_y = cy.selectbox(
-        "Year", [None] + year_range, index=0, format_func=lambda x: "Year" if x is None else x)
+        sel_y = cy.selectbox("Year", [None] + year_range, index=0, format_func=lambda x: "Year" if x is None else x)
             
         if st.button(f"Generate Report"):
             if sel_m and sel_y:
-                # Note: Since sel_y is now a string, we use it directly
                 f_str = f"{sel_y}-{months.index(sel_m)+1:02d}"
-                # ... rest of your code ...
                 s_df = conn.read(worksheet="Sales", ttl=0)
                 p_df = conn.read(worksheet="Purchases", ttl=0)
                 u_s = s_df[(s_df['UserPIN'] == kra_pin) & (s_df['Date'].astype(str).str.startswith(f_str))] if s_df is not None else pd.DataFrame()
