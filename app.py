@@ -60,26 +60,25 @@ VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE
 # --- 2. CONNECTION ---
 conn = st.connection("gsheets", type=GSheetsConnection)
 
-# --- 3. HELPER FUNCTIONS ---
-def get_recent_pins(pin_owner):
+# --- 3. HELPER FUNCTIONS (WITH CACHING) ---
+@st.cache_data(ttl=300) # Cache for 5 minutes to speed up reruns
+def get_recent_pins_cached(_conn, pin_owner):
     try:
-        s_df = conn.read(worksheet="Sales", ttl=0)
-        p_df = conn.read(worksheet="Purchases", ttl=0)
+        s_df = _conn.read(worksheet="Sales", ttl=0)
+        p_df = _conn.read(worksheet="Purchases", ttl=0)
         s_pins = s_df[s_df['UserPIN'] == pin_owner]['CounterpartyPIN'].tolist() if not s_df.empty else []
         p_pins = p_df[p_df['UserPIN'] == pin_owner]['CounterpartyPIN'].tolist() if not p_df.empty else []
         return sorted(list(set(str(p) for p in s_pins + p_pins if p)))
     except:
         return []
 
-def get_current_month_stats(pin):
+@st.cache_data(ttl=60) # Short cache for dashboard stats
+def get_stats_cached(_conn, pin, current_filter):
     try:
-        current_filter = now_kenya.strftime('%Y-%m')
-        s_df = conn.read(worksheet="Sales", ttl=0)
-        p_df = conn.read(worksheet="Purchases", ttl=0)
-        
+        s_df = _conn.read(worksheet="Sales", ttl=0)
+        p_df = _conn.read(worksheet="Purchases", ttl=0)
         c_sales = s_df[(s_df['UserPIN'] == pin) & (s_df['Date'].astype(str).str.startswith(current_filter))]
         c_purch = p_df[(p_df['UserPIN'] == pin) & (p_df['Date'].astype(str).str.startswith(current_filter))]
-        
         out_v = c_sales['VAT'].astype(float).sum() if not c_sales.empty else 0.0
         in_v = c_purch['VAT'].astype(float).sum() if not c_purch.empty else 0.0
         return out_v, in_v
@@ -201,8 +200,9 @@ with st.sidebar:
 st.title("GEMPS 🇰🇪 VAT Tracker")
 
 if kra_pin and is_valid_pin:
-    # Fetch Live Data for the Dashboard
-    live_out, live_in = get_current_month_stats(kra_pin)
+    # Optimized fetch
+    current_filter = now_kenya.strftime('%Y-%m')
+    live_out, live_in = get_stats_cached(conn, kra_pin, current_filter)
     net_payable = live_out - live_in
     
     st.subheader(f"📊 {now_kenya.strftime('%B %Y')} Live Status")
@@ -225,36 +225,36 @@ with tab1:
     if not kra_pin:
         st.info("👋 Enter KRA PIN in sidebar to start.")
     else:
-        # 2. AI SCANNER (Must be OUTSIDE the form to avoid StreamlitAPIException)
+        # 2. AI SCANNER (Must be OUTSIDE the form)
         with st.expander("📸 AI Receipt Scanner & PDF Reader", expanded=False):
             input_method = st.radio("Select Input", ["Camera", "Upload File"], horizontal=True)
             
             uploaded_doc = st.camera_input("Snap photo") if input_method == "Camera" else st.file_uploader("Upload Image/PDF", type=["pdf", "png", "jpg", "jpeg"])
             
             if uploaded_doc:
-                try:
-                    with st.spinner("AI is analyzing..."):
-                        extracted_data = scan_receipt_with_ai(uploaded_doc)
-                        
-                        if extracted_data:
-                            st.success("✅ Data Extracted!")
-                            # Update session state for form pre-filling
-                            # We use .get() with defaults to prevent KeyErrors
-                            raw_date = extracted_data.get('date')
-                            try:
-                                st.session_state.scanned_date = datetime.strptime(raw_date, '%Y-%m-%d').date() if raw_date else date.today()
-                            except:
-                                st.session_state.scanned_date = date.today()
-
-                            st.session_state.scanned_total = float(extracted_data.get('total', 0.0))
-                            st.session_state.scanned_pin = str(extracted_data.get('pin', "")).upper()
+                # Trigger button to prevent accidental API calls during reruns
+                if st.button("🚀 Process with AI", use_container_width=True):
+                    try:
+                        with st.spinner("Gemini is reading..."):
+                            extracted_data = scan_receipt_with_ai(uploaded_doc)
                             
-                            # Show extraction preview
-                            st.json(extracted_data)
-                        else:
-                            st.error("AI couldn't find data. Try a clearer photo or manual entry.")
-                except Exception as e:
-                    st.error(f"AI Connection Error: {e}. Check your API Key in Secrets.")
+                            if extracted_data:
+                                # Update session state for form pre-filling
+                                raw_date = extracted_data.get('date')
+                                try:
+                                    st.session_state.scanned_date = datetime.strptime(raw_date, '%Y-%m-%d').date() if raw_date else date.today()
+                                except:
+                                    st.session_state.scanned_date = date.today()
+
+                                st.session_state.scanned_total = float(extracted_data.get('total', 0.0))
+                                st.session_state.scanned_pin = str(extracted_data.get('pin', "")).upper()
+                                
+                                st.success("✅ Data Extracted!")
+                                st.rerun() # Refresh so the form below picks up the new values
+                            else:
+                                st.error("AI couldn't find data. Try a clearer photo.")
+                    except Exception as e:
+                        st.error(f"AI Error: {e}")
 
         st.divider()
 
@@ -264,14 +264,12 @@ with tab1:
             
             col1, col2 = st.columns(2)
             with col1:
-                # Pre-filled by AI if data exists in session_state
                 t_date = st.date_input("Invoice Date", value=st.session_state.get('scanned_date', date.today()))
                 amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
-                # Logic: Use AI-detected PIN if available, otherwise fallback to dropdown
                 s_pin = st.session_state.get('scanned_pin', "")
-                recent_pins = get_recent_pins(kra_pin)
+                recent_pins = get_recent_pins_cached(conn, kra_pin) # Using the cached version for speed
                 
                 if s_pin:
                     other_pin = st.text_input("Counterparty PIN (Detected)", value=s_pin).upper().strip()
@@ -282,7 +280,6 @@ with tab1:
                 is_etims = st.toggle("eTIMS Certified?", value=True)
                 calc_mode = st.radio("Pricing", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
 
-            # 4. SAVE LOGIC
             if st.form_submit_button("Save to Cloud", use_container_width=True):
                 if not other_pin or other_pin == kra_pin: 
                     st.error("⚠️ Invalid Counterparty PIN.")
@@ -296,7 +293,7 @@ with tab1:
                         
                         s_name = "Sales" if "Sales" in t_type else "Purchases"
                         
-                        # Data Persistence to Google Sheets
+                        # Data Persistence
                         df = conn.read(worksheet=s_name, ttl=0)
                         new_row = pd.DataFrame([{
                             "UserPIN": kra_pin, 
@@ -309,14 +306,12 @@ with tab1:
                         
                         conn.update(worksheet=s_name, data=pd.concat([df, new_row], ignore_index=True))
                         
-                        # Success Feedback
-                        st.success(f"✅ Transaction Saved to {s_name}!")
+                        st.success(f"✅ Saved to {s_name}!")
                         st.balloons()
                         
-                        # Cleanup: Clear scanner session state so next entry starts fresh
+                        # Cleanup scanner state
                         for key in ['scanned_date', 'scanned_total', 'scanned_pin']:
-                            if key in st.session_state: 
-                                del st.session_state[key]
+                            if key in st.session_state: del st.session_state[key]
                         
                         st.rerun() 
                         
