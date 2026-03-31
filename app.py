@@ -11,7 +11,8 @@ import google.generativeai as genai
 import json
 
 # --- INITIALIZE SESSION STATE ---
-if 'scanned_date' not in st.session_state: st.session_state.scanned_date = date.today()
+# Change: Initializing date as None to allow for placeholder behavior
+if 'scanned_date' not in st.session_state: st.session_state.scanned_date = None
 if 'scanned_total' not in st.session_state: st.session_state.scanned_total = 0.0
 if 'scanned_pin' not in st.session_state: st.session_state.scanned_pin = ""
 
@@ -165,7 +166,6 @@ with st.sidebar:
     kra_pin = kra_pin_raw.upper().strip()
     
     is_valid_pin = bool(re.match(r"^[A-Z]\d{9}[A-Z]$", kra_pin))
-    # Create a placeholder for messages
     msg = st.empty()
 
     if kra_pin:
@@ -175,7 +175,6 @@ with st.sidebar:
             st.success("✅ PIN Verified")
     
     st.divider()
-    # Toggle for VAT calculations (Used in Change 4)
     enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
     
     today = now_kenya.date()
@@ -245,14 +244,16 @@ with tab1:
             t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
             col1, col2 = st.columns(2)
             with col1:
-                t_date = st.date_input("Invoice Date", value=st.session_state.get('scanned_date', date.today()))
+                # Change: Using "value=None" and a format hint for the date input
+                t_date = st.date_input("Invoice Date", 
+                                      value=st.session_state.get('scanned_date'), 
+                                      format="YYYY/MM/DD")
                 amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
                 other_pin = st.text_input("Counterparty PIN").upper()
                 is_etims = st.toggle("eTIMS Certified?", value=True)
                 
-                # Link to Sidebar Toggle
                 if enable_vat_calc:
                     calc_mode = st.radio("Pricing Type", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
                 else:
@@ -272,21 +273,24 @@ with tab1:
                 total_to_save = amount
 
             if st.form_submit_button("Save to Cloud"):
-                try:
-                    sheet_name = "Sales" if "Sales" in t_type else "Purchases"
-                    existing_data = conn.read(worksheet=sheet_name, ttl=0)
-                    new_entry = pd.DataFrame([{
-                        "UserPIN": kra_pin, 
-                        "Date": str(t_date), 
-                        "CounterpartyPIN": other_pin, 
-                        "Total": int(round(total_to_save)), 
-                        "VAT": int(round(vat_val)), 
-                        "eTIMS": "Yes" if is_etims else "No"
-                    }])
-                    conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
-                    st.success("✅ Saved!")
-                except Exception as e:
-                    st.error(f"Error: {e}")
+                if t_date is None:
+                    st.error("Please select a date first.")
+                else:
+                    try:
+                        sheet_name = "Sales" if "Sales" in t_type else "Purchases"
+                        existing_data = conn.read(worksheet=sheet_name, ttl=0)
+                        new_entry = pd.DataFrame([{
+                            "UserPIN": kra_pin, 
+                            "Date": str(t_date), 
+                            "CounterpartyPIN": other_pin, 
+                            "Total": int(round(total_to_save)), 
+                            "VAT": int(round(vat_val)), 
+                            "eTIMS": "Yes" if is_etims else "No"
+                        }])
+                        conn.update(worksheet=sheet_name, data=pd.concat([existing_data, new_entry], ignore_index=True))
+                        st.success("✅ Saved!")
+                    except Exception as e:
+                        st.error(f"Error: {e}")
 
 with tab2:
     if not kra_pin: st.info("👋 Enter KRA PIN in sidebar.")
@@ -320,19 +324,29 @@ with tab2:
 with tab3:
     if not kra_pin: st.info("👋 Enter KRA PIN in sidebar.")
     else:
+        # --- Change 1 & 2: Month and Year Placeholders with Dynamic Year Range ---
         cm, cy = st.columns(2)
         months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"]
-        sel_m = cm.selectbox("Month", months, index=now_kenya.month-1)
-        sel_y = cy.selectbox("Year", range(2024, now_kenya.year + 2), index=now_kenya.year-2024)
-        f_str = f"{sel_y}-{months.index(sel_m)+1:02d}"
+        
+        # Month Dropdown with placeholder
+        sel_m = cm.selectbox("Month", [None] + months, index=0, format_func=lambda x: "Month" if x is None else x)
+        
+        # Dynamic Year Range (+/- 5 years)
+        current_year = now_kenya.year
+        year_range = list(range(current_year - 5, current_year + 6))
+        sel_y = cy.selectbox("Year", [None] + year_range, index=0, format_func=lambda x: "Year" if x is None else x)
 
-        if st.button(f"Generate Report for {sel_m} {sel_y}"):
-            s_df = conn.read(worksheet="Sales", ttl=0)
-            p_df = conn.read(worksheet="Purchases", ttl=0)
-            u_s = s_df[(s_df['UserPIN'] == kra_pin) & (s_df['Date'].astype(str).str.startswith(f_str))] if s_df is not None else pd.DataFrame()
-            u_p = p_df[(p_df['UserPIN'] == kra_pin) & (p_df['Date'].astype(str).str.startswith(f_str))] if p_df is not None else pd.DataFrame()
-            ov, iv = u_s['VAT'].astype(float).sum() if not u_s.empty else 0.0, u_p['VAT'].astype(float).sum() if not u_p.empty else 0.0
-            st.session_state.report_data = {"u_s": u_s, "u_p": u_p, "o_v": ov, "i_v": iv, "n_v": ov-iv, "period": f"{sel_m} {sel_y}"}
+        if st.button(f"Generate Report"):
+            if sel_m and sel_y:
+                f_str = f"{sel_y}-{months.index(sel_m)+1:02d}"
+                s_df = conn.read(worksheet="Sales", ttl=0)
+                p_df = conn.read(worksheet="Purchases", ttl=0)
+                u_s = s_df[(s_df['UserPIN'] == kra_pin) & (s_df['Date'].astype(str).str.startswith(f_str))] if s_df is not None else pd.DataFrame()
+                u_p = p_df[(p_df['UserPIN'] == kra_pin) & (p_df['Date'].astype(str).str.startswith(f_str))] if p_df is not None else pd.DataFrame()
+                ov, iv = u_s['VAT'].astype(float).sum() if not u_s.empty else 0.0, u_p['VAT'].astype(float).sum() if not u_p.empty else 0.0
+                st.session_state.report_data = {"u_s": u_s, "u_p": u_p, "o_v": ov, "i_v": iv, "n_v": ov-iv, "period": f"{sel_m} {sel_y}"}
+            else:
+                st.warning("Please select both Month and Year first.")
 
         if rd := st.session_state.get("report_data"):
             m1, m2, m3 = st.columns(3)
