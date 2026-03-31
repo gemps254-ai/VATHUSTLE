@@ -333,7 +333,7 @@ with tab1:
                 bar = st.progress(0)
                 for percent_complete in range(50):
                     time.sleep(0.1)
-                    bar.progress(percent_complete + 1)*2)
+                    bar.progress(percent_complete + 1) * 2)
                     if undo_clicked:
                         break
 
