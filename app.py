@@ -388,20 +388,31 @@ with tab3:
             m3.metric("Net VAT", f"KES {abs(rd['n_v']):,.0f}", delta="Due to KRA" if rd['n_v'] > 0 else "Credit")
 
             st.write("---")
-            # PDF Buttons
-            if st.button("📄 Prepare Final PDF Report", use_container_width=True):
-                st.session_state.pdf_report_bytes = create_full_vat_report(
-                    rd["u_s"], rd["u_p"], kra_pin, rd["period"], rd["o_v"], rd["i_v"], rd["n_v"]
-                )
+            btn_col1, btn_col2, btn_col3 = st.columns(3)
 
-            if st.session_state.get("pdf_report_bytes"):
+            with btn_col1:
+                if st.button("📄 Prepare Final PDF", use_container_width=True):
+                    st.session_state.pdf_report_bytes = create_full_vat_report(
+                        rd["u_s"], rd["u_p"], kra_pin, rd["period"], rd["o_v"], rd["i_v"], rd["n_v"]
+                    )
+
+            with btn_col2:
+                # Only show download if bytes exist
+                pdf_data = st.session_state.get("pdf_report_bytes")
                 st.download_button(
-                    label="📥 Download Complete Report (PDF)",
-                    data=st.session_state.pdf_report_bytes,
+                    label="📥 Download PDF",
+                    data=pdf_data if pdf_data else b"",
                     file_name=f"VAT_Report_{rd['period']}.pdf",
                     mime="application/pdf",
-                    use_container_width=True
+                    use_container_width=True,
+                    disabled=not pdf_data
                 )
+
+            with btn_col3:
+                if st.button("🔄 Clear Report", use_container_width=True):
+                    st.session_state.report_data = None
+                    st.session_state.pdf_report_bytes = None
+                    st.rerun()
 
             st.divider()
             col_l, col_r = st.columns(2)
