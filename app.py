@@ -248,7 +248,7 @@ with tab1:
                 t_date = st.date_input("Invoice Date", 
                                       value=st.session_state.get('scanned_date'), 
                                       format="YYYY/MM/DD")
-                amount = st.number_input("Total Amount (KES)", min_value=0, step=1, value=st.session_state.get('scanned_total', 0.0))
+                amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
                 other_pin = st.text_input("Counterparty PIN").upper()
