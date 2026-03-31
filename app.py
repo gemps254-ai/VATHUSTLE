@@ -161,19 +161,13 @@ st.markdown("""
 # --- 5. SIDEBAR ---
 with st.sidebar:
     st.header("🏢 GEMPS 🇰🇪")
-    
-    # CHANGE 1: Retention/Suggestion for User PIN
-    known_user_pins = get_all_user_pins(conn)
-    u_pin_choice = st.selectbox("Your KRA PIN", ["Enter New PIN..."] + known_user_pins)
-    if u_pin_choice == "Enter New PIN...":
-        kra_pin_raw = st.text_input("Input New KRA PIN", placeholder="e.g., A012345678Z")
-    else:
-        kra_pin_raw = u_pin_choice
-
+    kra_pin_raw = st.text_input("Your KRA PIN", placeholder="e.g., A012345678Z")
     kra_pin = kra_pin_raw.upper().strip()
-    is_valid_pin = bool(re.match(r"^[A-Z]\d{9}[A-Z]$", kra_pin))
     
-    # CHANGE 3: Permanent PIN Verified notification
+    is_valid_pin = bool(re.match(r"^[A-Z]\d{9}[A-Z]$", kra_pin))
+    # Create a placeholder for messages
+    msg = st.empty()
+
     if kra_pin:
         if not is_valid_pin: 
             st.warning("⚠️ Invalid PIN format.")
