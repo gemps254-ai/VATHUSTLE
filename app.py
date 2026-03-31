@@ -244,27 +244,10 @@ with tab1:
             t_type = st.selectbox("Category", ["Select Category","Sales (Output VAT)", "Purchase (Input VAT)"])
             col1, col2 = st.columns(2)
             with col1:
-                # We use text_input to show the literal placeholder "YYYY/MM/DD"
-                # If AI scanned a date, we use that; otherwise, it stays empty showing the placeholder
-                date_str = st.text_input(
-                    "Invoice Date", 
-                    value=st.session_state.get('scanned_date').strftime('%Y/%m/%d') if st.session_state.get('scanned_date') else "",
-                    placeholder="YYYY/MM/DD",
-                    help="Enter date in YYYY/MM/DD format"
-                )
-                
-                # Logic to convert that text back into a date object for your database
-                try:
-                    if date_str:
-                        # Matches both YYYY/MM/DD and YYYY-MM-DD for user convenience
-                        clean_date = date_str.replace("-", "/")
-                        t_date = datetime.strptime(clean_date, '%Y/%m/%d').date()
-                    else:
-                        t_date = None
-                except ValueError:
-                    st.error("⚠️ Please use the format YYYY/MM/DD")
-                    t_date = None
-            
+                # Change: Using "value=None" and a format hint for the date input
+                t_date = st.date_input("Invoice Date", 
+                                      value=st.session_state.get('scanned_date'), 
+                                      format="YYYY/MM/DD")
                 amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
