@@ -134,9 +134,16 @@ with st.sidebar:
     kra_pin = kra_pin_raw.upper().strip()
     is_valid_pin = bool(re.match(r"^[A-Z]\d{9}[A-Z]$", kra_pin))
     
+    # --- RESTORED DISAPPEARING MESSAGE ---
+    msg = st.empty() 
     if kra_pin:
-        if not is_valid_pin: st.warning("⚠️ Invalid PIN format.")
-        else: st.success("✅ PIN Verified")
+        if not is_valid_pin: 
+            msg.warning("⚠️ Invalid PIN format.")
+        else: 
+            msg.success("✅ PIN Verified")
+            time.sleep(2)
+            msg.empty()
+    # -------------------------------------
     
     st.divider()
     enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
@@ -255,12 +262,36 @@ with tab3:
             ov, iv = u_s['VAT'].astype(float).sum() if not u_s.empty else 0.0, u_p['VAT'].astype(float).sum() if not u_p.empty else 0.0
             st.session_state.report_data = {"u_s": u_s, "u_p": u_p, "o_v": ov, "i_v": iv, "n_v": ov-iv, "period": f"{sel_m} {sel_y}"}
 
+        # --- RESTORED 3-COLUMN DISPLAY BLOCK ---
         if rd := st.session_state.get("report_data"):
             m1, m2, m3 = st.columns(3)
             m1.metric("Output VAT", f"KES {rd['o_v']:,.0f}")
             m2.metric("Input VAT", f"KES {rd['i_v']:,.0f}")
             m3.metric("Net VAT", f"KES {abs(rd['n_v']):,.0f}", delta="Due" if rd['n_v']>0 else "Credit")
-            if st.button("📄 Prepare Final PDF"):
-                st.session_state.pdf_report_bytes = create_full_vat_report(rd["u_s"], rd["u_p"], kra_pin, rd["period"], rd["o_v"], rd["i_v"], rd["n_v"])
-            if pdf_b := st.session_state.get("pdf_report_bytes"):
-                st.download_button("📥 Download PDF", pdf_b, f"VAT_{rd['period']}.pdf", "application/pdf")
+
+            st.write("---")
+            # Alignment Fix
+            btn_col1, btn_col2, btn_col3 = st.columns(3)
+
+            with btn_col1:
+                if st.button("📄 Prepare Final PDF", use_container_width=True):
+                    st.session_state.pdf_report_bytes = create_full_vat_report(
+                        rd["u_s"], rd["u_p"], kra_pin, rd["period"], rd["o_v"], rd["i_v"], rd["n_v"]
+                    )
+
+            with btn_col2:
+                pdf_data = st.session_state.get("pdf_report_bytes")
+                st.download_button(
+                    label="📥 Download PDF",
+                    data=pdf_data if pdf_data else b"",
+                    file_name=f"VAT_Report_{rd['period']}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True,
+                    disabled=not pdf_data
+                )
+
+            with btn_col3:
+                if st.button("🔄 Clear Report", use_container_width=True):
+                    st.session_state.report_data = None
+                    st.session_state.pdf_report_bytes = None
+                    st.rerun()
