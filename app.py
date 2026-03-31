@@ -302,17 +302,17 @@ with tab1:
                     vat_val = amount * CURRENT_VAT_RATE
                     total_to_save = amount + vat_val
 
-                calculation_placeholder = st.empty()
+                    calculation_placeholder = st.empty()
                 
-                Net: {total_to_save - vat_val:.2f}
-                VAT: {vat_val:.2f}
-                Total: {total_to_save:.2f}
-                """)
+                    Net: {total_to_save - vat_val:.2f}
+                    VAT: {vat_val:.2f}
+                    Total: {total_to_save:.2f}
+                    """)
 
-                time.sleep(4)
+                    time.sleep(4)
     
-                # 4. Clear the placeholder (makes the info disappear)
-                calculation_placeholder.empty()
+                    # 4. Clear the placeholder (makes the info disappear)
+                    calculation_placeholder.empty()
 
             else:
                 vat_val = 0
