@@ -333,17 +333,13 @@ with tab3:
         
         # Dynamic Year Range (+/- 5 years)
         # --- FIXED YEAR SELECTION ---
-            current_year = now_kenya.year
-            # Convert the range of integers into a list of strings
-            year_range = [str(y) for y in range(current_year - 5, current_year + 6)]
+        current_year = now_kenya.year
+        # Convert the range of integers into a list of strings
+        year_range = [str(y) for y in range(current_year - 5, current_year + 6)]
             
-            # Now both None and the years are handled as objects/strings consistently
-            sel_y = cy.selectbox(
-                "Year", 
-                [None] + year_range, 
-                index=0, 
-                format_func=lambda x: "Year" if x is None else x
-            )
+        # Now both None and the years are handled as objects/strings consistently
+        sel_y = cy.selectbox(
+        "Year", [None] + year_range, index=0, format_func=lambda x: "Year" if x is None else x)
             
             if st.button(f"Generate Report"):
                 if sel_m and sel_y:
