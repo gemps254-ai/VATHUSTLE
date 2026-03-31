@@ -7,6 +7,31 @@ import re
 import time
 import io
 from fpdf import FPDF
+import google.generativeai as genai
+import json
+
+# Setup Gemini
+if "GEMINI_API_KEY" in st.secrets:
+    genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
+
+def scan_receipt_with_ai(image_file):
+    model = genai.GenerativeModel('gemini-1.5-flash')
+    img = io.BytesIO(image_file.getvalue()).read()
+    
+    prompt = """
+    You are a Kenyan Tax Assistant. Analyze this eTIMS receipt. 
+    Return ONLY a JSON object with these keys: 
+    'date' (YYYY-MM-DD), 'total' (number), 'pin' (Seller KRA PIN), 'vat' (number).
+    If a value is missing, use null.
+    """
+    
+    response = model.generate_content([prompt, {'mime_type': 'image/jpeg', 'data': img}])
+    try:
+        # Clean the response text to ensure it's valid JSON
+        clean_json = response.text.replace("```json", "").replace("```", "").strip()
+        return json.loads(clean_json)
+    except:
+        return None
 
 # --- 1. INITIALIZE GLOBAL VARIABLES & CONFIG ---
 st.set_page_config(page_title="GEMPS 🇰🇪 VAT Tracker", layout="wide", page_icon="🇰🇪")
@@ -191,42 +216,92 @@ with tab1:
         # --- AI RECEIPT SCANNER ---
         with st.expander("📸 AI Receipt Scanner", expanded=False):
             st.write("Tip: Use your phone's 'Flip' icon to switch to the back camera.")
-            uploaded_receipt = st.camera_input("Snap a photo of the eTIMS receipt", help="Ensure the KRA PIN and Total Amount are clearly visible.")
+            uploaded_receipt = st.camera_input("Snap a photo of the eTIMS receipt")
             
             if uploaded_receipt:
-                # We will place the Gemini AI logic here in the next step
-                st.info("🔄 Receipt captured! Ready to analyze...")
-                st.image(uploaded_receipt, caption="Preview of captured receipt", width=300)
+                with st.spinner("AI is reading your receipt..."):
+                    extracted_data = scan_receipt_with_ai(uploaded_receipt)
+                    
+                    if extracted_data:
+                        st.success("✅ Data Extracted!")
+                        # Store in session state to pre-fill the form
+                        try:
+                            st.session_state.scanned_date = datetime.strptime(extracted_data['date'], '%Y-%m-%d').date() if extracted_data['date'] else date.today()
+                        except:
+                            st.session_state.scanned_date = date.today()
+                        
+                        st.session_state.scanned_total = float(extracted_data['total']) if extracted_data['total'] else 0.0
+                        st.session_state.scanned_pin = str(extracted_data['pin']).upper() if extracted_data['pin'] else ""
+                        
+                        st.json(extracted_data) # Preview for the user
+                    else:
+                        st.error("Could not read receipt clearly. Please try again or enter manually.")
 
-        st.write("---") # Visual divider
+        st.divider()
 
-        # --- MANUAL TRANSACTION FORM ---
+        # --- UPDATED TRANSACTION FORM ---
         with st.form("transaction_form", clear_on_submit=True):
             t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
+            
             col1, col2 = st.columns(2)
             with col1:
-                t_date = st.date_input("Invoice Date", date.today())
-                amount = st.number_input("Total Amount (KES)", min_value=0, step=1)
+                # Pre-filled by AI if available
+                t_date = st.date_input("Invoice Date", value=st.session_state.get('scanned_date', date.today()))
+                amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
+            
             with col2:
+                # Pre-fill scanned PIN if available
+                scanned_pin = st.session_state.get('scanned_pin', "")
                 recent_pins = get_recent_pins(kra_pin)
-                other_pin_sel = st.selectbox("Counterparty PIN", [""] + recent_pins + ["➕ New PIN..."])
-                other_pin = st.text_input("Manual PIN Entry").upper().strip() if other_pin_sel == "➕ New PIN..." else other_pin_sel
+                
+                # Logic: If AI found a PIN, we use text_input. If not, we show the dropdown.
+                if scanned_pin:
+                    other_pin = st.text_input("Counterparty PIN (Detected)", value=scanned_pin).upper().strip()
+                else:
+                    other_pin_sel = st.selectbox("Counterparty PIN", [""] + recent_pins + ["➕ New PIN..."])
+                    other_pin = st.text_input("Manual PIN Entry").upper().strip() if other_pin_sel == "➕ New PIN..." else other_pin_sel
+                
                 is_etims = st.toggle("eTIMS Certified?", value=True)
                 calc_mode = st.radio("Pricing", ["VAT Inclusive", "VAT Exclusive"], horizontal=True) if enable_vat_calc else "Exempt"
 
-            if submit_btn := st.form_submit_button("Save to Cloud", use_container_width=True):
-                if not other_pin or other_pin == kra_pin: st.error("⚠️ Invalid Counterparty PIN.")
-                elif amount <= 0: st.warning("⚠️ Amount must be > 0.")
+            if st.form_submit_button("Save to Cloud", use_container_width=True):
+                if not other_pin or other_pin == kra_pin: 
+                    st.error("⚠️ Invalid Counterparty PIN.")
+                elif amount <= 0: 
+                    st.warning("⚠️ Amount must be > 0.")
                 else:
                     try:
+                        # VAT Calculations
                         v_val = (amount - (amount/VAT_MULTIPLIER)) if calc_mode == "VAT Inclusive" else (amount * CURRENT_VAT_RATE if calc_mode == "VAT Exclusive" else 0)
                         t_save = amount if calc_mode == "VAT Inclusive" else (amount + v_val if calc_mode == "VAT Exclusive" else amount)
+                        
                         s_name = "Sales" if "Sales" in t_type else "Purchases"
+                        
+                        # Data Persistence
                         df = conn.read(worksheet=s_name, ttl=0)
-                        new_row = pd.DataFrame([{"UserPIN": kra_pin, "Date": str(t_date), "CounterpartyPIN": other_pin, "Total": int(round(t_save)), "VAT": int(round(v_val)), "eTIMS": "Yes" if is_etims else "No"}])
+                        new_row = pd.DataFrame([{
+                            "UserPIN": kra_pin, 
+                            "Date": str(t_date), 
+                            "CounterpartyPIN": other_pin, 
+                            "Total": int(round(t_save)), 
+                            "VAT": int(round(v_val)), 
+                            "eTIMS": "Yes" if is_etims else "No"
+                        }])
+                        
                         conn.update(worksheet=s_name, data=pd.concat([df, new_row], ignore_index=True))
-                        st.success("✅ Saved!"); st.balloons()
-                    except Exception as e: st.error(f"Error: {e}")
+                        
+                        # Success and Cleanup
+                        st.success(f"✅ Saved to {s_name}!"); st.balloons()
+                        
+                        # Clear AI session state after successful save
+                        for key in ['scanned_date', 'scanned_total', 'scanned_pin']:
+                            if key in st.session_state: 
+                                del st.session_state[key]
+                        
+                        st.rerun() # Refresh to clear form
+                        
+                    except Exception as e: 
+                        st.error(f"Error saving to Cloud: {e}")
 
 with tab2:
     if not kra_pin: st.info("👋 Enter KRA PIN in sidebar.")
