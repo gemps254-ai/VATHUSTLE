@@ -188,7 +188,16 @@ with tab1:
     if not kra_pin:
         st.info("👋 Enter KRA PIN in sidebar to start.")
     else:
-        st.button("📸 Scan Receipt (Coming Soon)", icon="📷", use_container_width=True, disabled=True)
+        # --- NEW: AI RECEIPT SCANNER SECTION ---
+        with st.expander("📸 AI Receipt Scanner", expanded=False):
+            uploaded_receipt = st.camera_input("Snap a photo of the eTIMS receipt")
+            
+            if uploaded_receipt:
+                st.info("🔄 Processing Receipt... (Connecting to AI Engine)")
+                # Placeholder for the Gemini API call we will add next
+                st.warning("Note: AI Data Extraction will be linked in the next step.")
+        
+        st.write("") # Just a little spacer for visual breathing room
         with st.form("transaction_form", clear_on_submit=True):
             t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
             col1, col2 = st.columns(2)
