@@ -232,27 +232,26 @@ with tab1:
             uploaded_doc = st.camera_input("Snap photo") if input_method == "Camera" else st.file_uploader("Upload Image/PDF", type=["pdf", "png", "jpg", "jpeg"])
             
             if uploaded_doc:
-                # Trigger button to prevent accidental API calls during reruns
                 if st.button("🚀 Process with AI", use_container_width=True):
                     try:
                         with st.spinner("Gemini is reading..."):
                             extracted_data = scan_receipt_with_ai(uploaded_doc)
                             
                             if extracted_data:
-                                # Update session state for form pre-filling
-                                raw_date = extracted_data.get('date')
-                                try:
-                                    st.session_state.scanned_date = datetime.strptime(raw_date, '%Y-%m-%d').date() if raw_date else date.today()
-                                except:
-                                    st.session_state.scanned_date = date.today()
-
+                                # Update session state
                                 st.session_state.scanned_total = float(extracted_data.get('total', 0.0))
                                 st.session_state.scanned_pin = str(extracted_data.get('pin', "")).upper()
+                                raw_date = extracted_data.get('date')
+                                try:
+                                    st.session_state.scanned_date = datetime.strptime(raw_date, '%Y-%m-%d').date()
+                                except:
+                                    st.session_state.scanned_date = date.today()
                                 
-                                st.success("✅ Data Extracted!")
-                                st.rerun() # Refresh so the form below picks up the new values
+                                # We don't rerun here; we let the user see the "Extracted" status.
+                                # The form below will automatically use these session_state values.
+                                st.toast("✅ Data Extracted!") 
                             else:
-                                st.error("AI couldn't find data. Try a clearer photo.")
+                                st.error("AI couldn't find data.")
                     except Exception as e:
                         st.error(f"AI Error: {e}")
 
