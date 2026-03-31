@@ -255,34 +255,34 @@ with tab1:
                 amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
-    # 1. Check for AI detected PIN first
-    s_pin = st.session_state.get('scanned_pin', "")
-    recent_pins = get_recent_pins_cached(conn, kra_pin)
-    
-    # 2. Use a hybrid selection/input logic
-    # This allows users to either select from a list OR type a completely new PIN
-    if s_pin:
-        other_pin = st.text_input("Counterparty PIN (Detected)", value=s_pin).upper().strip()
-    else:
-        # We use a placeholder to guide the user that they can type anything
-        other_pin = st.selectbox(
-            "Counterparty PIN (Select or type to search)",
-            options=[""] + recent_pins + ["➕ New PIN..."],
-            index=0,
-            help="Select an existing PIN or click 'New PIN' to enter a manual one."
-        )
+            # 1. Check for AI detected PIN first
+            s_pin = st.session_state.get('scanned_pin', "")
+            recent_pins = get_recent_pins_cached(conn, kra_pin)
+            
+            # 2. Use a hybrid selection/input logic
+            # This allows users to either select from a list OR type a completely new PIN
+            if s_pin:
+                other_pin = st.text_input("Counterparty PIN (Detected)", value=s_pin).upper().strip()
+            else:
+                # We use a placeholder to guide the user that they can type anything
+                other_pin = st.selectbox(
+                    "Counterparty PIN (Select or type to search)",
+                    options=[""] + recent_pins + ["➕ New PIN..."],
+                    index=0,
+                    help="Select an existing PIN or click 'New PIN' to enter a manual one."
+                )
+                
+                # If the user selects "New PIN", show the manual entry box
+                if other_pin == "➕ New PIN...":
+                    other_pin = st.text_input("Manual PIN Entry", placeholder="Enter PIN (e.g., P051796617P)").upper().strip()
         
-        # If the user selects "New PIN", show the manual entry box
-        if other_pin == "➕ New PIN...":
-            other_pin = st.text_input("Manual PIN Entry", placeholder="Enter PIN (e.g., P051796617P)").upper().strip()
-
-    is_etims = st.toggle("eTIMS Certified?", value=True)
-    
-    # 3. VAT Calculations Toggle
-    if enable_vat_calc:
-        calc_mode = st.radio("Pricing", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
-    else:
-        calc_mode = "VAT Exempt"
+            is_etims = st.toggle("eTIMS Certified?", value=True)
+            
+            # 3. VAT Calculations Toggle
+            if enable_vat_calc:
+                calc_mode = st.radio("Pricing", ["VAT Inclusive", "VAT Exclusive"], horizontal=True)
+            else:
+                calc_mode = "VAT Exempt"
 
             if st.form_submit_button("Save to Cloud", use_container_width=True):
                 if not other_pin or other_pin == kra_pin: 
