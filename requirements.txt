@@ -7,5 +7,5 @@ pytz
 fpdf
 google-generativeai
 pytesseract
-tesseract-ocr
+
 
