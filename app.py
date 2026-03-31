@@ -295,7 +295,7 @@ with tab1:
                     st.warning("Amount must be greater than 0.")
                 else:
                     try:
-                    sheet_name = "Sales" if "Sales" in t_type else "Purchases"
+                        sheet_name = "Sales" if "Sales" in t_type else "Purchases"
                     existing_data = conn.read(worksheet=sheet_name, ttl=0)
                     new_entry = pd.DataFrame([{
                         "UserPIN": kra_pin, 
