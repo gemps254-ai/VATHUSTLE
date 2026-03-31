@@ -190,6 +190,9 @@ with st.sidebar:
             st.warning("⚠️ Invalid PIN format.")
         else: 
             st.success("✅ PIN Verified")
+
+    if st.button("🔄 Refresh"):
+        refresh_data()
     
     st.divider()
     enable_vat_calc = st.toggle("Enable VAT Calculations", value=True)
