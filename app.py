@@ -178,18 +178,15 @@ st.markdown("""
 
 # --- 5. SIDEBAR ---
 with st.sidebar:
-    st.header("🏢 GEMPS 🇰🇪")
-    kra_pin_raw = st.text_input("Your KRA PIN", placeholder="e.g., A012345678Z")
-    kra_pin = kra_pin_raw.upper().strip()
-    
-    is_valid_pin = bool(re.match(r"^[A-Z]\d{9}[A-Z]$", kra_pin))
-    msg = st.empty()
+    st.header("GEMPS 🇰🇪")
+
+    kra_pin = st.text_input("KRA PIN").upper().strip()
 
     if kra_pin:
-        if not is_valid_pin: 
-            st.warning("⚠️ Invalid PIN format.")
-        else: 
-            st.success("✅ PIN Verified")
+        if not re.match(r"^[A-Z]\d{9}[A-Z]$", kra_pin):
+            st.warning("Invalid PIN")
+        else:
+            st.success("PIN Verified")
 
     if st.button("🔄 Refresh"):
         refresh_data()
