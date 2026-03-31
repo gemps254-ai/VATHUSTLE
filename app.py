@@ -333,13 +333,13 @@ with tab1:
                         # This creates a button that sets a flag if clicked
                     undo_clicked = st.button("⏪ UNDO (10s)", key="undo_btn")
                         
-                        # Progress bar for the 10-second wait
-                        bar = st.progress(0)
-                        for percent_complete in range(100):
-                            time.sleep(0.1) # 0.1 * 100 = 10 seconds
-                            bar.progress(percent_complete + 1)
-                            if undo_clicked:
-                                break
+                    # Progress bar for the 10-second wait
+                    bar = st.progress(0)
+                    for percent_complete in range(100):
+                    time.sleep(0.1) # 0.1 * 100 = 10 seconds
+                    bar.progress(percent_complete + 1)
+                    if undo_clicked:
+                        break
             
                     if undo_clicked:
                         undo_placeholder.error("🔄 Save Cancelled. You can edit the form and try again.")
