@@ -6,6 +6,6 @@ openpyxl
 pytz
 fpdf
 google-generativeai
-pytesseract
+
 
 
