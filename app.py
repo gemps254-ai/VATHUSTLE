@@ -273,7 +273,7 @@ with tab1:
                 amount = st.number_input("Total Amount (KES)", min_value=0.0, step=1.0, value=st.session_state.get('scanned_total', 0.0))
             
             with col2:
-                other_pin = st.text_input("Counterparty PIN", value=st.session_state.get('scanned_pin', "")).upper()
+                other_pin = st.text_input("Counterparty PIN", placeholder="e.g., A012345678Z", value=st.session_state.get('scanned_pin', "")).upper()
                 is_etims = st.toggle("eTIMS Certified?", value=True)
                 
                 if enable_vat_calc:
