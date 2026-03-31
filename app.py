@@ -304,7 +304,6 @@ with tab1:
 
                 calculation_placeholder = st.empty()
                 
-                st.info(f"""
                 Net: {total_to_save - vat_val:.2f}
                 VAT: {vat_val:.2f}
                 Total: {total_to_save:.2f}
