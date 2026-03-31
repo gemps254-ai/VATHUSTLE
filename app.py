@@ -331,7 +331,7 @@ with tab1:
                     with undo_placeholder.container():
                         st.warning("Saving transaction...")
                         # This creates a button that sets a flag if clicked
-                        undo_clicked = st.button("⏪ UNDO (10s)", key="undo_btn")
+                    undo_clicked = st.button("⏪ UNDO (10s)", key="undo_btn")
                         
                         # Progress bar for the 10-second wait
                         bar = st.progress(0)
