@@ -310,7 +310,7 @@ with tab1:
 
                 # Auto-disappear after 2 seconds
                 time.sleep(4)
-                msg.empty()
+                msg.info()
             
             else:
                 vat_val = 0
