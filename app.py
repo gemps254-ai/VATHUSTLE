@@ -19,6 +19,14 @@ if 'scanned_pin' not in st.session_state: st.session_state.scanned_pin = ""
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
+# ------------------ CACHE ------------------
+@st.cache_data(ttl=600)
+def load_data(sheet):
+    return conn.read(worksheet=sheet)
+
+def refresh_data():
+    st.cache_data.clear()
+
 def scan_receipt_with_ai(uploaded_file):
     """Robust scanner that handles multimodal data correctly with 1.5 Flash."""
     model = genai.GenerativeModel('gemini-1.5-flash')
