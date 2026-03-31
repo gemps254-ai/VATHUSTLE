@@ -94,12 +94,44 @@ VAT_MULTIPLIER = 1 + CURRENT_VAT_RATE
 # 1. Setup Page & Styling
 st.set_page_config(page_title="GEMPS 🇰🇪 VAT Tracker", layout="wide", page_icon="🇰🇪")
 
+# --- PHASE 2: MOBILE UI INJECTION ---
 st.markdown("""
     <style>
-    input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-    input[type=number] { -moz-appearance: textfield; }
-    [data-testid="stMetricValue"] { font-size: 1.6rem; font-weight: 700; }
-    div[data-testid="metric-container"] { background-color: #f9f9f9; border: 1px solid #e0e0e0; padding: 15px; border-radius: 10px; }
+    /* 1. Make Metrics look like Mobile Cards */
+    [data-testid="stMetricValue"] {
+        font-size: 1.8rem !important;
+        color: #1f77b4;
+    }
+    div[data-testid="metric-container"] {
+        background-color: #ffffff;
+        border: 2px solid #f0f2f6;
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+
+    /* 2. Optimize for Mobile Screens */
+    @media (max-width: 640px) {
+        .main .block-container {
+            padding-top: 1rem;
+            padding-left: 0.5rem;
+            padding-right: 0.5rem;
+        }
+        /* Make buttons larger for thumbs */
+        .stButton>button {
+            width: 100% !important;
+            height: 3.5rem !important;
+            font-size: 1.1rem !important;
+            border-radius: 12px !important;
+        }
+    }
+
+    /* 3. Hide the Sidebar on mobile to save space */
+    @media (max-width: 640px) {
+        [data-testid="stSidebar"] {
+            display: none;
+        }
+    }
     </style>
 """, unsafe_allow_html=True)
 
