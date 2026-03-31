@@ -10,7 +10,7 @@ from fpdf import FPDF
 import google.generativeai as genai
 import json
 import uuid
-import pytesseract
+
 from PIL import Image
 
 # ------------------ CONFIG ------------------
