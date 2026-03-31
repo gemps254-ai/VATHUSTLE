@@ -241,7 +241,7 @@ with tab1:
         st.divider()
 
         with st.form("transaction_form", clear_on_submit=True):
-            t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
+            t_type = st.selectbox("Category", ["Select Category","Sales (Output VAT)", "Purchase (Input VAT)"])
             col1, col2 = st.columns(2)
             with col1:
                 # Change: Using "value=None" and a format hint for the date input
@@ -335,7 +335,7 @@ with tab3:
         # --- FIXED YEAR SELECTION ---
         current_year = now_kenya.year
         # Convert the range of integers into a list of strings
-        year_range = [str(y) for y in range(current_year - 5, current_year + 6)]
+        year_range = [str(y) for y in range(current_year - 2, current_year + 4)]
             
         # Now both None and the years are handled as objects/strings consistently
         sel_y = cy.selectbox(
