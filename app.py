@@ -14,25 +14,33 @@ import json
 if "GEMINI_API_KEY" in st.secrets:
     genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
 
-def scan_receipt_with_ai(image_file):
+def scan_receipt_with_ai(uploaded_file):
     model = genai.GenerativeModel('gemini-1.5-flash')
-    img = io.BytesIO(image_file.getvalue()).read()
+    
+    # Identify the file type (MIME type)
+    mime_type = uploaded_file.type # e.g., 'application/pdf' or 'image/jpeg'
+    file_bytes = uploaded_file.getvalue()
     
     prompt = """
-    You are a Kenyan Tax Assistant. Analyze this eTIMS receipt. 
+    Analyze this document (eTIMS receipt or invoice). 
     Return ONLY a JSON object with these keys: 
     'date' (YYYY-MM-DD), 'total' (number), 'pin' (Seller KRA PIN), 'vat' (number).
+    If it is a PDF with multiple pages, only analyze the first page.
     If a value is missing, use null.
     """
     
-    response = model.generate_content([prompt, {'mime_type': 'image/jpeg', 'data': img}])
+    # Send to Gemini
+    response = model.generate_content([
+        prompt, 
+        {'mime_type': mime_type, 'data': file_bytes}
+    ])
+    
     try:
-        # Clean the response text to ensure it's valid JSON
         clean_json = response.text.replace("```json", "").replace("```", "").strip()
         return json.loads(clean_json)
     except:
         return None
-
+        
 # --- 1. INITIALIZE GLOBAL VARIABLES & CONFIG ---
 st.set_page_config(page_title="GEMPS 🇰🇪 VAT Tracker", layout="wide", page_icon="🇰🇪")
 kenya_tz = pytz.timezone('Africa/Nairobi')
@@ -213,18 +221,24 @@ with tab1:
     if not kra_pin:
         st.info("👋 Enter KRA PIN in sidebar to start.")
     else:
-        # --- AI RECEIPT SCANNER ---
-        with st.expander("📸 AI Receipt Scanner", expanded=False):
-            st.write("Tip: Use your phone's 'Flip' icon to switch to the back camera.")
-            uploaded_receipt = st.camera_input("Snap a photo of the eTIMS receipt")
+        # --- AI RECEIPT SCANNER SECTION ---
+        with st.expander("📸 AI Receipt Scanner & PDF Reader", expanded=False):
+            # Let user choose their input method
+            input_method = st.radio("Select Input", ["Camera", "Upload File (PDF/Image)"], horizontal=True)
             
-            if uploaded_receipt:
-                with st.spinner("AI is reading your receipt..."):
-                    extracted_data = scan_receipt_with_ai(uploaded_receipt)
+            uploaded_doc = None
+            if input_method == "Camera":
+                uploaded_doc = st.camera_input("Snap a photo")
+            else:
+                uploaded_doc = st.file_uploader("Upload Receipt", type=["pdf", "png", "jpg", "jpeg"])
+            
+            if uploaded_doc:
+                with st.spinner("AI is analyzing the document..."):
+                    extracted_data = scan_receipt_with_ai(uploaded_doc)
                     
                     if extracted_data:
                         st.success("✅ Data Extracted!")
-                        # Store in session state to pre-fill the form
+                        # Fill session state
                         try:
                             st.session_state.scanned_date = datetime.strptime(extracted_data['date'], '%Y-%m-%d').date() if extracted_data['date'] else date.today()
                         except:
@@ -233,12 +247,12 @@ with tab1:
                         st.session_state.scanned_total = float(extracted_data['total']) if extracted_data['total'] else 0.0
                         st.session_state.scanned_pin = str(extracted_data['pin']).upper() if extracted_data['pin'] else ""
                         
-                        st.json(extracted_data) # Preview for the user
+                        st.json(extracted_data)
                     else:
-                        st.error("Could not read receipt clearly. Please try again or enter manually.")
+                        st.error("Could not process this file. Please try a clearer image or manual entry.")
 
         st.divider()
-
+        
         # --- UPDATED TRANSACTION FORM ---
         with st.form("transaction_form", clear_on_submit=True):
             t_type = st.selectbox("Category", ["Sales (Output VAT)", "Purchase (Input VAT)"])
